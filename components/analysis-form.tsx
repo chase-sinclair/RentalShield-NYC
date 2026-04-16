@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
+import { LoadingAnalysis } from "@/components/loading-analysis";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { saveAnalysisResult } from "@/lib/utils/analysis-storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { AnalysisResponse } from "@/types";
+import type { AnalysisResponse, UploadResponse } from "@/types";
 
 interface AnalysisFormProps {
   compact?: boolean;
@@ -25,6 +26,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submissionStage, setSubmissionStage] = useState<string | null>(null);
 
   const canSubmit = Boolean(listingUrl || messageText || files.length);
 
@@ -56,8 +58,43 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
 
     setError(null);
     setSubmitting(true);
+    setSubmissionStage(files.length ? "Validating and uploading screenshot evidence..." : "Preparing analysis request...");
 
     try {
+      let screenshotAssets: UploadResponse["files"] = [];
+
+      if (files.length) {
+        const uploadFormData = new FormData();
+        files.forEach((file) => {
+          uploadFormData.append("files", file);
+        });
+
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: uploadFormData,
+        });
+
+        const uploadPayload = (await uploadResponse.json()) as
+          | UploadResponse
+          | {
+              ok: false;
+              error?: string;
+            };
+
+        if (!uploadResponse.ok || !uploadPayload.ok) {
+          setError(
+            "error" in uploadPayload && uploadPayload.error
+              ? uploadPayload.error
+              : "Your screenshots could not be uploaded yet. Please try again.",
+          );
+          return;
+        }
+
+        screenshotAssets = uploadPayload.files;
+      }
+
+      setSubmissionStage("Reviewing listing, text, and screenshot evidence...");
+
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: {
@@ -67,7 +104,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
           listingUrl: listingUrl.trim() || undefined,
           messageText: messageText.trim() || undefined,
           manualRent: normalizedRent,
-          screenshotNames: files.map((file) => file.name),
+          screenshotAssets,
         }),
       });
 
@@ -95,6 +132,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
       }
 
       saveAnalysisResult(payload.data);
+      setSubmissionStage("Opening your results...");
 
       startTransition(() => {
         router.push(`/results/${payload.data.id}`);
@@ -103,6 +141,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
       setError("The analysis request failed before a response came back. Please try again.");
     } finally {
       setSubmitting(false);
+      setSubmissionStage(null);
     }
   }
 
@@ -115,6 +154,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
           </label>
           <Input
             id="listing-url"
+            disabled={submitting}
             placeholder="https://streeteasy.com/building/example-listing"
             value={listingUrl}
             onChange={(event) => setListingUrl(event.target.value)}
@@ -127,6 +167,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
           </label>
           <Input
             id="manual-rent"
+            disabled={submitting}
             inputMode="numeric"
             placeholder="$3,250"
             value={manualRent}
@@ -141,13 +182,22 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
         </label>
         <Textarea
           id="message-text"
+          disabled={submitting}
           placeholder="Paste anything the broker or landlord sent, especially pricing, urgency, deposit requests, or touring details."
           value={messageText}
           onChange={(event) => setMessageText(event.target.value)}
         />
       </div>
 
-      <UploadDropzone onFilesChange={setFiles} />
+      <UploadDropzone
+        disabled={submitting}
+        helperText="Upload screenshots from your phone or desktop. We validate file count, type, and size on the server before analysis."
+        onFilesChange={setFiles}
+      />
+
+      {submitting && submissionStage ? (
+        <LoadingAnalysis summary={submissionStage} />
+      ) : null}
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 

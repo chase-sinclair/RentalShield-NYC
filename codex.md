@@ -662,3 +662,19 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Stored returned analysis payloads in browser session storage so `/results/[id]` can render request-specific mock-backed results before Supabase persistence is implemented.
 - Refactored results rendering into reusable client/view components and added a loading state while session results are being resolved.
 - Updated the landing/analyze copy so the app now describes the live mock-backed analysis flow accurately.
+- Published the scaffold plus Phase 1 flow to GitHub on `main` so future phases can build from the remote baseline.
+
+### Phase 2 Complete - Upload Handling And Evidence Pipeline
+- Implemented a real `/api/upload` flow that validates screenshot count, type, and size server-side before analysis begins.
+- Updated the submission flow to upload screenshots first, then pass structured uploaded asset metadata into `/api/analyze`.
+- Extended input validation contracts and analysis types so screenshots participate in the orchestration path as typed evidence, not just file names.
+- Connected uploaded screenshot assets into the mock OCR/orchestration layer and surfaced screenshot evidence in the results payload.
+- Improved submission UX with stage-based loading messages for upload, evidence review, and results handoff.
+- Ran `npm install`, `npm run lint`, `npm run build`, and `npm run typecheck` after Phase 2. Validation passed after fixing ESLint flat-config setup, Next.js typed route config placement, navigation route typing, and the lint script.
+
+### Phase 3 Complete - AI And Tooling Core
+- Reworked the AI layer into Bedrock-ready prompt and invocation utilities with structured JSON parsing and safe fallback behavior.
+- Added modular prompt builders for message extraction, screenshot extraction, and risk scoring to keep model-facing instructions centralized.
+- Upgraded message extraction, screenshot OCR, and scam scoring services to prefer Bedrock responses while falling back to deterministic/mock logic when Bedrock is unavailable.
+- Updated orchestration so extraction notes, screenshot evidence, dynamic ranked factors, and model-aware scoring outputs flow into the analysis result.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after Phase 3. Validation passed cleanly.

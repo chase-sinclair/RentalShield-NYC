@@ -9,9 +9,16 @@ import { cn } from "@/lib/utils/cn";
 interface UploadDropzoneProps {
   maxFiles?: number;
   onFilesChange?: (files: File[]) => void;
+  disabled?: boolean;
+  helperText?: string;
 }
 
-export function UploadDropzone({ maxFiles = 5, onFilesChange }: UploadDropzoneProps) {
+export function UploadDropzone({
+  maxFiles = 5,
+  onFilesChange,
+  disabled = false,
+  helperText,
+}: UploadDropzoneProps) {
   const inputId = useId();
   const [files, setFiles] = useState<File[]>([]);
 
@@ -40,6 +47,7 @@ export function UploadDropzone({ maxFiles = 5, onFilesChange }: UploadDropzonePr
         </div>
         <input
           className="sr-only"
+          disabled={disabled}
           id={inputId}
           multiple
           accept="image/*"
@@ -47,6 +55,9 @@ export function UploadDropzone({ maxFiles = 5, onFilesChange }: UploadDropzonePr
           onChange={(event) => updateFiles(Array.from(event.target.files ?? []))}
         />
       </label>
+      <p className="text-sm text-muted-foreground">
+        {helperText ?? `Upload up to ${maxFiles} screenshots. Image validation is enforced server-side.`}
+      </p>
 
       {files.length ? (
         <div className="space-y-2">
@@ -60,6 +71,7 @@ export function UploadDropzone({ maxFiles = 5, onFilesChange }: UploadDropzonePr
                 <p className="text-muted-foreground">{Math.round(file.size / 1024)} KB</p>
               </div>
               <Button
+                disabled={disabled}
                 size="sm"
                 type="button"
                 variant="ghost"

@@ -9,6 +9,12 @@ export const uploadSchema = z.object({
   size: z.number().max(serverEnv.maxUploadFileSizeMb * 1024 * 1024),
 });
 
+export const uploadedAssetSchema = uploadSchema.extend({
+  id: z.string().min(1),
+});
+
+export const uploadAssetsSchema = z.array(uploadedAssetSchema).max(serverEnv.maxUploadFileCount);
+
 export const analyzeInputSchema = z
   .object({
     listingUrl: z.string().trim().optional(),
@@ -17,12 +23,12 @@ export const analyzeInputSchema = z
       .union([z.number().nonnegative(), z.nan()])
       .optional()
       .transform((value) => (Number.isNaN(value) ? undefined : value)),
-    screenshotNames: z.array(z.string()).max(serverEnv.maxUploadFileCount).optional(),
+    screenshotAssets: uploadAssetsSchema.optional(),
   })
   .superRefine((value, ctx) => {
     const hasUrl = Boolean(value.listingUrl);
     const hasMessage = Boolean(value.messageText);
-    const hasShots = Boolean(value.screenshotNames?.length);
+    const hasShots = Boolean(value.screenshotAssets?.length);
 
     if (!(hasUrl || hasMessage || hasShots)) {
       ctx.addIssue({

@@ -32,7 +32,7 @@ export interface AnalysisInput {
   listingUrl?: string;
   messageText?: string;
   manualRent?: number;
-  screenshotNames?: string[];
+  screenshotAssets?: UploadAsset[];
 }
 
 export interface AnalysisResult {
@@ -73,4 +73,14 @@ export interface UploadAsset {
   name: string;
   contentType: string;
   size: number;
+}
+
+export interface UploadResponse {
+  ok: boolean;
+  files: UploadAsset[];
+  limits: {
+    maxUploadFileCount: number;
+    maxUploadFileSizeMb: number;
+  };
+  notes?: string[];
 }

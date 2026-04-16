@@ -5,7 +5,7 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/analyze", label: "Analyze" },
   { href: "/disclaimer", label: "Disclaimer" },
-];
+] as const;
 
 export function SiteHeader() {
   return (

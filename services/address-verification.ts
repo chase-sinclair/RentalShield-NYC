@@ -4,6 +4,8 @@ export async function verifyAddress(address?: string) {
   if (!address) {
     return {
       normalizedAddress: undefined,
+      borough: undefined,
+      neighborhood: undefined,
       manhattanOnly: false,
       status: "skipped" as const,
       notes: ["No address was available to verify."],

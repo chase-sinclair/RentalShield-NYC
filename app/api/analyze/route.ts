@@ -8,7 +8,12 @@ export async function POST(request: Request) {
     listingUrl?: string;
     messageText?: string;
     manualRent?: number;
-    screenshotNames?: string[];
+    screenshotAssets?: {
+      id: string;
+      name: string;
+      contentType: string;
+      size: number;
+    }[];
   };
 
   const parsed = analyzeInputSchema.safeParse(body);
@@ -24,7 +29,10 @@ export async function POST(request: Request) {
   }
 
   // Keep route handlers thin; validation and orchestration live in shared modules.
-  const { data, trace } = await runAnalysisOrchestration(parsed.data);
+  const { data, trace } = await runAnalysisOrchestration(
+    parsed.data,
+    parsed.data.screenshotAssets ?? [],
+  );
 
   return NextResponse.json({
     ok: true,
