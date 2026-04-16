@@ -6,7 +6,49 @@ import {
 import type { ExtractionSignalSet } from "@/lib/analysis/types";
 import type { AnalysisInput } from "@/types";
 
+function toOptionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function toStringArray(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+
+  return [];
+}
+
+function toConfidence(value: unknown, fallback = 0.5) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeExtractionSignalSet(value: unknown): ExtractionSignalSet {
+  const payload = value as Record<string, unknown>;
+
+  return {
+    brokerName: toOptionalString(payload.brokerName),
+    company: toOptionalString(payload.company),
+    paymentMethod: toOptionalString(payload.paymentMethod),
+    urgencySignals: toStringArray(payload.urgencySignals),
+    tourLimitations: toStringArray(payload.tourLimitations),
+    confidence: toConfidence(payload.confidence, 0.62),
+    notes: toStringArray(payload.notes),
+    modelIdUsed: "pending-bedrock-model",
+  };
+}
+
 function buildFallbackSignals(raw: string): ExtractionSignalSet {
+  return buildFallbackSignalsWithReason(raw);
+}
+
+function buildFallbackSignalsWithReason(raw: string, reason?: string): ExtractionSignalSet {
   const normalized = raw.toLowerCase();
   const urgencySignals = [
     normalized.includes("today") ? "Mentions same-day urgency" : null,
@@ -34,7 +76,12 @@ function buildFallbackSignals(raw: string): ExtractionSignalSet {
     confidence: raw ? 0.56 : 0.18,
     notes: [
       raw
-        ? "Used heuristic extraction fallback because Bedrock extraction was unavailable."
+        ? [
+            "Used heuristic extraction fallback because Bedrock extraction was unavailable.",
+            reason ? `Fallback reason: ${reason}` : "",
+          ]
+            .filter(Boolean)
+            .join(" ")
         : "No message text was provided for extraction.",
     ],
     modelIdUsed: "heuristic-fallback",
@@ -49,19 +96,19 @@ export async function extractMessageSignals(input: Pick<AnalysisInput, "messageT
   }
 
   try {
-    const response = await invokeBedrockJson<ExtractionSignalSet>({
+    const response = await invokeBedrockJson<unknown>({
       systemPrompt: EXTRACTION_SYSTEM_PROMPT,
       userPrompt: buildMessageExtractionPrompt(raw),
     });
+    const normalized = normalizeExtractionSignalSet(response.data);
 
     return {
-      ...response.data,
-      urgencySignals: response.data.urgencySignals ?? [],
-      tourLimitations: response.data.tourLimitations ?? [],
-      notes: response.data.notes ?? [],
+      ...normalized,
       modelIdUsed: response.modelIdUsed,
     };
-  } catch {
-    return buildFallbackSignals(raw);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Unknown Bedrock extraction error.";
+    console.error("Message extraction Bedrock call failed:", error);
+    return buildFallbackSignalsWithReason(raw, reason);
   }
 }

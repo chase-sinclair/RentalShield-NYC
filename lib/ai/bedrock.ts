@@ -1,6 +1,7 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
 
 import { serverEnv } from "@/lib/config/env";
+import type { StagedUploadAsset } from "@/types";
 
 let client: BedrockRuntimeClient | null = null;
 
@@ -56,6 +57,14 @@ function extractJsonCandidate(text: string) {
   return trimmed;
 }
 
+function parseAnthropicTextResponse(raw: string) {
+  const parsed = JSON.parse(raw) as {
+    content?: { type: string; text?: string }[];
+  };
+
+  return parsed.content?.map((item) => item.text ?? "").join("\n") ?? raw;
+}
+
 export async function invokeBedrockJson<TOutput>(input: {
   systemPrompt: string;
   userPrompt: string;
@@ -85,10 +94,56 @@ export async function invokeBedrockJson<TOutput>(input: {
   });
 
   const raw = decodeBody(response.body);
-  const parsed = JSON.parse(raw) as {
-    content?: { type: string; text?: string }[];
+  const text = parseAnthropicTextResponse(raw);
+  const jsonCandidate = extractJsonCandidate(text);
+
+  return {
+    data: JSON.parse(jsonCandidate) as TOutput,
+    modelIdUsed,
   };
-  const text = parsed.content?.map((item) => item.text ?? "").join("\n") ?? raw;
+}
+
+export async function invokeBedrockMultimodalJson<TOutput>(input: {
+  systemPrompt: string;
+  userPrompt: string;
+  images: StagedUploadAsset[];
+  modelId?: string;
+  maxTokens?: number;
+}): Promise<{ data: TOutput; modelIdUsed: string }> {
+  const modelIdUsed = input.modelId ?? serverEnv.bedrockModelId;
+
+  const imageContent = input.images.map((image) => ({
+    type: "image",
+    source: {
+      type: "base64",
+      media_type: image.contentType,
+      data: image.base64Data,
+    },
+  }));
+
+  const response = await invokeBedrockModel({
+    modelId: modelIdUsed,
+    body: {
+      anthropic_version: "bedrock-2023-05-31",
+      max_tokens: input.maxTokens ?? 1200,
+      system: input.systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: [
+            ...imageContent,
+            {
+              type: "text",
+              text: input.userPrompt,
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  const raw = decodeBody(response.body);
+  const text = parseAnthropicTextResponse(raw);
   const jsonCandidate = extractJsonCandidate(text);
 
   return {

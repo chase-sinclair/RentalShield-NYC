@@ -83,6 +83,10 @@ export interface UploadAsset {
   size: number;
 }
 
+export interface StagedUploadAsset extends UploadAsset {
+  base64Data: string;
+}
+
 export interface UploadResponse {
   ok: boolean;
   files: UploadAsset[];

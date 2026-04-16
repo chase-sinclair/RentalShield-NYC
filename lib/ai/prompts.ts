@@ -29,6 +29,11 @@ Analyze the following landlord or broker communication and return JSON with:
 - confidence (0 to 1)
 - notes (string[])
 
+Rules:
+- Use null when brokerName or company are not stated.
+- Return short concrete strings, not long sentences, for urgencySignals and tourLimitations.
+- Do not include markdown fences or commentary.
+
 Communication:
 ${messageText || "No message text provided."}
 `.trim();
@@ -38,10 +43,16 @@ export function buildScreenshotExtractionPrompt(input: {
   files: { name: string; contentType: string; size: number }[];
 }) {
   return `
-Analyze uploaded screenshot metadata for a Manhattan rental scam workflow and return JSON with:
+Analyze the provided screenshot images directly for a Manhattan rental scam workflow and return JSON with:
 - text
 - confidence (0 to 1)
 - notes (string[])
+
+Rules:
+- Summarize only text or scam-relevant signals that are actually visible in the screenshots.
+- Keep text concise but useful for downstream risk scoring.
+- Do not mention missing capabilities or metadata-only limitations.
+- Do not include markdown fences or commentary.
 
 Uploaded screenshots:
 ${input.files.map((file) => `- ${file.name} (${file.contentType}, ${file.size} bytes)`).join("\n") || "- none"}
@@ -63,9 +74,17 @@ Return JSON with:
 - score
 - label ("low" | "medium" | "high")
 - summary
-- rankedFactors
-- recommendedNextSteps
-- notes
+- rankedFactors (array of objects with: title, severity, contribution, explanation, evidenceSource)
+- recommendedNextSteps (string[])
+- notes (string[])
+
+Rules:
+- Keep rankedFactors aligned to the supplied candidate factors when possible.
+- Keep rankedFactors to the most material 4 to 6 items.
+- Use evidenceSource values only from: "url", "message", "screenshot", "tool".
+- Do not introduce keys like "factor" or "evidence"; use the exact keys requested above.
+- Keep recommendedNextSteps to 3 to 5 concise actions.
+- Do not include markdown fences or commentary.
 
 Use these facts:
 - normalizedAddress: ${input.normalizedAddress ?? "Unavailable"}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { serverEnv } from "@/lib/config/env";
+import { stageUploadedFiles } from "@/lib/uploads/staging";
 import { uploadSchema } from "@/lib/utils/validation";
 
 export async function POST(request: Request) {
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const validatedFiles = [];
+  const validatedFiles: File[] = [];
 
   for (const file of files) {
     if (!(file instanceof File)) {
@@ -61,25 +62,21 @@ export async function POST(request: Request) {
       );
     }
 
-    validatedFiles.push({
-      id: crypto.randomUUID(),
-      name: file.name,
-      contentType: file.type,
-      size: file.size,
-    });
+    validatedFiles.push(file);
   }
 
-  // TODO: Persist uploads to Supabase storage or a signed upload flow.
+  const stagedAssets = await stageUploadedFiles(validatedFiles);
+
   return NextResponse.json({
     ok: true,
-    files: validatedFiles,
+    files: stagedAssets,
     limits: {
       maxUploadFileCount: serverEnv.maxUploadFileCount,
       maxUploadFileSizeMb: serverEnv.maxUploadFileSizeMb,
     },
     notes: [
-      "Screenshots are validated server-side and staged as metadata only in Phase 2.",
-      "OCR extraction still uses mock service output until Bedrock multimodal extraction is connected.",
+      "Screenshots are validated server-side and staged temporarily for immediate analysis.",
+      "Image bytes are available to the Bedrock multimodal pipeline during the current submission flow.",
     ],
   });
 }

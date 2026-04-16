@@ -1,6 +1,6 @@
 import { mockAnalysisResult } from "@/lib/analysis/mock-data";
 import { createTraceEntry } from "@/lib/mcp/orchestrator";
-import type { AnalysisInput, AnalysisResult, UploadAsset } from "@/types";
+import type { AnalysisInput, AnalysisResult, StagedUploadAsset, UploadAsset } from "@/types";
 
 import { verifyAddress } from "@/services/address-verification";
 import { getActiveBedrockModel } from "@/services/bedrock-model-selection";
@@ -109,7 +109,7 @@ function buildSystemNotes(input: {
 
 export async function runAnalysisOrchestration(
   input: AnalysisInput,
-  uploads: UploadAsset[] = [],
+  uploads: StagedUploadAsset[] = [],
 ): Promise<{ data: AnalysisResult; trace: ReturnType<typeof createTraceEntry>[] }> {
   const trace = [];
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { persistAnalysisResult } from "@/lib/analysis/persistence";
+import { resolveStagedUploads } from "@/lib/uploads/staging";
 import { runAnalysisOrchestration } from "@/services/mcp-orchestration";
 import { analyzeInputSchema } from "@/lib/utils/validation";
 
@@ -30,10 +31,8 @@ export async function POST(request: Request) {
   }
 
   // Keep route handlers thin; validation and orchestration live in shared modules.
-  const { data, trace } = await runAnalysisOrchestration(
-    parsed.data,
-    parsed.data.screenshotAssets ?? [],
-  );
+  const stagedUploads = resolveStagedUploads(parsed.data.screenshotAssets ?? []);
+  const { data, trace } = await runAnalysisOrchestration(parsed.data, stagedUploads);
   const persistence = await persistAnalysisResult({
     result: data,
     input: parsed.data,
