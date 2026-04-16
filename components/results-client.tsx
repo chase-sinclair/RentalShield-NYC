@@ -11,23 +11,24 @@ import type { AnalysisResult } from "@/types";
 
 interface ResultsClientProps {
   id: string;
+  initialResult?: AnalysisResult | null;
 }
 
-export function ResultsClient({ id }: ResultsClientProps) {
+export function ResultsClient({ id, initialResult = null }: ResultsClientProps) {
   const [result, setResult] = useState<AnalysisResult | null>(() =>
-    id === MOCK_RESULT_ID ? mockAnalysisResult : null,
+    id === MOCK_RESULT_ID ? mockAnalysisResult : initialResult,
   );
-  const [isReady, setIsReady] = useState(id === MOCK_RESULT_ID);
+  const [isReady, setIsReady] = useState(id === MOCK_RESULT_ID || Boolean(initialResult));
 
   useEffect(() => {
-    if (id === MOCK_RESULT_ID) {
+    if (id === MOCK_RESULT_ID || initialResult) {
       return;
     }
 
     const stored = loadAnalysisResult(id);
     setResult(stored);
     setIsReady(true);
-  }, [id]);
+  }, [id, initialResult]);
 
   if (!isReady) {
     return (
@@ -42,7 +43,7 @@ export function ResultsClient({ id }: ResultsClientProps) {
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
         <ErrorState
           title="Analysis not available"
-          description="This result is not stored in the current browser session yet. Re-run the analysis from the form to regenerate it."
+          description="This result was not found in Supabase or the current browser session. Re-run the analysis from the form to regenerate it."
         />
       </div>
     );

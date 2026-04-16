@@ -68,6 +68,10 @@ export interface AnalysisResponse {
     status: "completed" | "skipped" | "failed";
     detail: string;
   }[];
+  persistence?: {
+    persisted: boolean;
+    detail: string;
+  };
 }
 
 export interface UploadAsset {

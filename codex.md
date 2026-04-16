@@ -692,3 +692,10 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Upgraded the results UI with an analysis overview section, richer score framing, model visibility, and better extracted-signal presentation for urgency and tour limitations.
 - Cleaned up risk-factor presentation so severity/evidence labels read more intentionally and the result page feels closer to a portfolio-quality trust product.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after Phase 5. Validation passed cleanly.
+
+### Phase 6 Complete - Persistence And Result Retrieval
+- Added Supabase-backed analysis persistence helpers that attempt to store full analysis payloads, inputs, and trace metadata without blocking the user when persistence is unavailable.
+- Updated the analyze API to persist completed analyses after orchestration and return persistence status alongside the analysis response.
+- Added a real `/api/analyze/[id]` retrieval route and updated `/results/[id]` to prefer persisted results from the server before falling back to current-session storage.
+- Preserved the no-auth MVP flow by keeping persistence optional and resilient when Supabase credentials or the `rental_analyses` table are not ready yet.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after Phase 6. Validation passed cleanly after adding ESLint ignores for `.next`.

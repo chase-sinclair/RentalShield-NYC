@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { persistAnalysisResult } from "@/lib/analysis/persistence";
 import { runAnalysisOrchestration } from "@/services/mcp-orchestration";
 import { analyzeInputSchema } from "@/lib/utils/validation";
 
@@ -33,10 +34,16 @@ export async function POST(request: Request) {
     parsed.data,
     parsed.data.screenshotAssets ?? [],
   );
+  const persistence = await persistAnalysisResult({
+    result: data,
+    input: parsed.data,
+    trace,
+  });
 
   return NextResponse.json({
     ok: true,
     data,
     trace,
+    persistence,
   });
 }

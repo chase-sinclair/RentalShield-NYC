@@ -1,3 +1,4 @@
+import { getPersistedAnalysisResult } from "@/lib/analysis/persistence";
 import { ResultsClient } from "@/components/results-client";
 
 interface ResultsPageProps {
@@ -6,6 +7,7 @@ interface ResultsPageProps {
 
 export default async function ResultsPage({ params }: ResultsPageProps) {
   const { id } = await params;
+  const persistedResult = await getPersistedAnalysisResult(id);
 
-  return <ResultsClient id={id} />;
+  return <ResultsClient id={id} initialResult={persistedResult} />;
 }
