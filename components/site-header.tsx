@@ -31,6 +31,18 @@ export function SiteHeader() {
           ))}
         </nav>
 
+        <nav className="flex items-center gap-3 text-sm text-muted-foreground md:hidden">
+          <Link className="rounded-full px-3 py-2 transition hover:bg-secondary hover:text-foreground" href="/">
+            Home
+          </Link>
+          <Link
+            className="rounded-full px-3 py-2 transition hover:bg-secondary hover:text-foreground"
+            href="/analyze"
+          >
+            Analyze
+          </Link>
+        </nav>
+
         <Link
           className="hidden rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 md:inline-flex"
           href="/analyze"

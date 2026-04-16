@@ -24,7 +24,8 @@ export default function DisclaimerPage() {
           </p>
           <p>
             External checks for geocoding, rent comparison, license lookup, OCR, and Bedrock scoring
-            are scaffolded in this MVP but intentionally left as TODO-backed service integrations.
+            now have live integration paths with graceful fallback behavior, but they should still be
+            treated as informational signals rather than legal or factual guarantees.
           </p>
         </div>
       </SectionCard>

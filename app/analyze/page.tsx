@@ -8,12 +8,12 @@ export default function AnalyzePage() {
       <SectionCard
         eyebrow="Analysis"
         title="Analyze a rental listing"
-        description="This dedicated page will eventually host the full submission and extraction-review flow. For the scaffold, it demonstrates the intended structure, loading patterns, and reusable form components."
+        description="Use this page when you want the full submission flow with listing input, message evidence, screenshots, validation, and the current explainable Manhattan-focused scoring pipeline."
       >
         <AnalysisForm />
       </SectionCard>
 
-      <LoadingAnalysis summary="Submitting this form now sends a real request to the analyze API and routes to a request-specific results page backed by mock services." />
+      <LoadingAnalysis summary="Submitting this form sends a real analysis request, optionally persists the result, and routes to a result page that can load from Supabase or the current browser session." />
     </div>
   );
 }

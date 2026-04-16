@@ -75,9 +75,9 @@ export default function HomePage() {
             </p>
             <h2 className="mt-3 text-2xl font-semibold text-foreground">Start with what you already have</h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Paste a message, drop screenshots from your phone, or add a listing URL. The Phase 1
-              flow now sends a real analysis request and shows a request-specific result backed by
-              the current mock orchestration layer.
+              Paste a message, drop screenshots from your phone, or add a listing URL. The current
+              MVP supports live request handling, optional Supabase persistence, explainable scoring,
+              and Manhattan-focused verification with graceful fallbacks when checks are unavailable.
             </p>
             <div className="mt-6">
               <AnalysisForm compact />

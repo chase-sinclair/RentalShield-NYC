@@ -1,6 +1,6 @@
 # RentalShield NYC
 
-RentalShield NYC is a production-minded MVP scaffold for a Manhattan-focused rental scam screening product. This baseline emphasizes clean architecture, explainable results, Bedrock-ready orchestration, and a mobile-first trust-oriented UI without overbuilding every feature up front.
+RentalShield NYC is a production-minded MVP for Manhattan-focused rental scam screening. The app now supports a real request flow, explainable scoring, screenshot upload validation, Bedrock-ready orchestration, optional Supabase persistence, and a mobile-first trust-oriented UI.
 
 ## Stack
 
@@ -18,8 +18,8 @@ RentalShield NYC is a production-minded MVP scaffold for a Manhattan-focused ren
 - Shared layout and sticky navigation
 - Reusable UI components for upload, score display, factor explanations, verified facts, and next steps
 - Thin API routes with service-based orchestration
-- Placeholder services for all requested verification and scoring capabilities
-- Mock analysis data so the UI works before live APIs are connected
+- Live request flow with graceful fallback services where integrations are incomplete
+- Optional Supabase persistence and server-backed result retrieval
 - Environment variable parsing and setup helpers
 - Supabase and Bedrock client wrappers
 - Manhattan-only scope messaging and disclaimer language
@@ -49,7 +49,7 @@ npm install
 cp .env.example .env.local
 ```
 
-3. Fill in `.env.local` with the keys you want to enable first. The scaffold runs with mock data even if external integrations are unset.
+3. Fill in `.env.local` with the keys you want to enable first. The app degrades gracefully when some integrations are unset, but Bedrock, Google Maps, RentCast, and Supabase each improve coverage when configured.
 
 ## Development commands
 
@@ -81,16 +81,17 @@ npm run typecheck
 - Manhattan-only V1 UX and messaging
 - No auth
 - No saved user history UI
-- Upload API is scaffolded only
-- Live OCR, geocoding, rent comparison, and broker verification remain TODO-backed service integrations
-- Result pages use mock data until persistence is connected
+- OCR still falls back to mock extraction text when Bedrock multimodal support is unavailable
+- Broker verification uses a simple lookup strategy and may need a stronger NY license data source
+- Persistence expects a Supabase table named `rental_analyses`
 
 ## Suggested next implementation steps
 
 1. Wire `app/api/upload/route.ts` to Supabase Storage or a signed upload flow.
-2. Replace service placeholders with live Google Maps, RentCast, Bedrock, and broker lookup integrations.
-3. Persist analysis results in Supabase and switch `/results/[id]` to real data retrieval.
-4. Add extraction review state between submit and results when the orchestration pipeline is live.
+2. Expand screenshot OCR into true multimodal Bedrock extraction using stored image assets instead of metadata-only fallback behavior.
+3. Create and migrate the `rental_analyses` Supabase table for durable result retrieval across sessions.
+4. Strengthen broker verification with a more robust NY licensing/provider strategy and explicit normalization rules.
+5. Add accessibility QA, mobile QA, and a final deployment checklist for Vercel + Supabase.
 
 ## Disclaimer
 

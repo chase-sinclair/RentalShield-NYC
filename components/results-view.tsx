@@ -33,7 +33,19 @@ export function ResultsView({ result }: ResultsViewProps) {
         steps={result.recommendedNextSteps}
         unverifiedOrMissing={result.unverifiedOrMissing}
       />
-      <DisclaimerBanner />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DisclaimerBanner />
+        <div className="rounded-[1.75rem] border border-white/70 bg-white/88 p-6 shadow-soft backdrop-blur">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+            Result metadata
+          </p>
+          <div className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
+            <p>Analysis ID: {result.id}</p>
+            <p>Created: {new Date(result.createdAt).toLocaleString()}</p>
+            <p>Checks run: {result.checksRun.length}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

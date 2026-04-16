@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { LoadingAnalysis } from "@/components/loading-analysis";
+import { StatusBanner } from "@/components/status-banner";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { saveAnalysisResult } from "@/lib/utils/analysis-storage";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submissionStage, setSubmissionStage] = useState<string | null>(null);
+  const [successNote, setSuccessNote] = useState<string | null>(null);
 
   const canSubmit = Boolean(listingUrl || messageText || files.length);
 
@@ -57,6 +59,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
     }
 
     setError(null);
+    setSuccessNote(null);
     setSubmitting(true);
     setSubmissionStage(files.length ? "Validating and uploading screenshot evidence..." : "Preparing analysis request...");
 
@@ -132,6 +135,11 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
       }
 
       saveAnalysisResult(payload.data);
+      setSuccessNote(
+        payload.persistence?.persisted
+          ? "Analysis saved to Supabase and ready to revisit by result ID."
+          : payload.persistence?.detail ?? "Analysis generated for the current session.",
+      );
       setSubmissionStage("Opening your results...");
 
       startTransition(() => {
@@ -153,12 +161,16 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
             Listing URL
           </label>
           <Input
+            aria-describedby="listing-url-help"
             id="listing-url"
             disabled={submitting}
             placeholder="https://streeteasy.com/building/example-listing"
             value={listingUrl}
             onChange={(event) => setListingUrl(event.target.value)}
           />
+          <p className="text-sm text-muted-foreground" id="listing-url-help">
+            StreetEasy or any public listing URL works best. Message-only submissions are also supported.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -166,6 +178,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
             Optional quoted rent
           </label>
           <Input
+            aria-describedby="manual-rent-help"
             id="manual-rent"
             disabled={submitting}
             inputMode="numeric"
@@ -173,6 +186,9 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
             value={manualRent}
             onChange={(event) => setManualRent(event.target.value)}
           />
+          <p className="text-sm text-muted-foreground" id="manual-rent-help">
+            Optional fallback if the listing or message does not clearly state the rent.
+          </p>
         </div>
       </div>
 
@@ -181,12 +197,16 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
           Email or text message content
         </label>
         <Textarea
+          aria-describedby="message-text-help"
           id="message-text"
           disabled={submitting}
           placeholder="Paste anything the broker or landlord sent, especially pricing, urgency, deposit requests, or touring details."
           value={messageText}
           onChange={(event) => setMessageText(event.target.value)}
         />
+        <p className="text-sm text-muted-foreground" id="message-text-help">
+          Include pressure language, payment requests, touring limitations, and any claimed broker details.
+        </p>
       </div>
 
       <UploadDropzone
@@ -199,7 +219,8 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
         <LoadingAnalysis summary={submissionStage} />
       ) : null}
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? <StatusBanner message={error} tone="error" /> : null}
+      {successNote && !submitting ? <StatusBanner message={successNote} tone="success" /> : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Button className="w-full sm:w-auto" disabled={pending || submitting} size="lg" type="submit">
