@@ -706,3 +706,10 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Refined home, analyze, disclaimer, and README copy so the product description matches the app’s actual current capabilities instead of the earlier scaffold wording.
 - Updated lint/build/typecheck hardening details, including typed-route-safe error-state links and stable TypeScript configuration after Next.js normalized `tsconfig.json` during build.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after Phase 7. Validation passed cleanly.
+
+### Post-Phase Follow-Up - Result Clarity And Bedrock Diagnosis
+- Fixed results-page trust issues by separating degraded checks from provider/system notes, clarifying when fallback scoring was used, and preserving both the configured Bedrock model ID and the actual execution mode shown to the user.
+- Updated orchestration so extracted borough and neighborhood values stay aligned with verified address output, preventing mismatches between extracted facts and verified facts.
+- Narrowed the "What still needs verification" list to actual user-facing gaps instead of mixing in internal fallback/provider messages.
+- Ran a direct Bedrock invocation test against the configured model in `.env.local` and confirmed AWS connectivity is working, but the configured model ID `anthropic.claude-3-7-sonnet-20250219-v1:0` was rejected with a `ValidationException` because on-demand invocation is not supported for that model and Bedrock expects an inference profile ID or ARN instead.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the follow-up fix. Validation passed cleanly.

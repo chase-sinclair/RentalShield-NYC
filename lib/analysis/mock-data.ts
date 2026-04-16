@@ -10,6 +10,9 @@ export const mockAnalysisResult: AnalysisResult = {
     "Several scam indicators were detected, including pressure-heavy language, a likely below-market rent, and incomplete broker verification.",
   confidenceNote:
     "This estimate is useful for screening, but some checks remain mocked or partially unavailable, so it should not replace independent verification.",
+  systemNotes: [
+    "This sample result uses demo-ready fallback data in parts of the analysis pipeline.",
+  ],
   rankedFactors: [
     {
       title: "Quoted rent appears meaningfully below neighborhood context",
@@ -83,6 +86,7 @@ export const mockAnalysisResult: AnalysisResult = {
   extractedRent: 2650,
   extractedBrokerName: "Daniel M.",
   extractedCompany: "Metro Prime Leasing",
+  configuredModelId: "anthropic.claude-3-7-sonnet-20250219-v1:0",
   modelIdUsed: "anthropic.claude-3-7-sonnet-20250219-v1:0",
   disclaimer:
     "RentalShield NYC provides an informational risk estimate based on the evidence you submit. It does not provide legal advice, guarantee that a listing is legitimate, or replace independent verification.",

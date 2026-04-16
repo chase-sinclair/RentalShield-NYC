@@ -63,6 +63,50 @@ function buildVerifiedFacts(input: {
   });
 }
 
+function buildDegradedChecks(input: {
+  messageModelId: string;
+  screenshotModelId: string;
+  scoringModelId: string;
+  uploads: UploadAsset[];
+  hasMessageText: boolean;
+  brokerStatus: "skipped" | "mock" | "completed";
+}) {
+  return uniqueList([
+    input.hasMessageText && input.messageModelId === "heuristic-fallback"
+      ? "message_extraction_tool used fallback extraction logic."
+      : "",
+    input.uploads.length && input.screenshotModelId === "mock-fallback"
+      ? "ocr_or_multimodal_extraction_tool used fallback screenshot extraction."
+      : "",
+    input.scoringModelId === "deterministic-fallback"
+      ? "risk_scoring_tool used deterministic fallback scoring."
+      : "",
+    input.brokerStatus === "mock"
+      ? "broker_verification_tool used fallback provider behavior."
+      : "",
+  ]);
+}
+
+function buildSystemNotes(input: {
+  messageNotes: string[];
+  screenshotNotes: string[];
+  scoringNotes: string[];
+  addressNotes: string[];
+  propertyNotes: string[];
+  rentNotes: string[];
+  brokerNotes: string[];
+}) {
+  return uniqueList([
+    ...input.messageNotes,
+    ...input.screenshotNotes,
+    ...input.scoringNotes,
+    ...input.addressNotes,
+    ...input.propertyNotes,
+    ...input.rentNotes,
+    ...input.brokerNotes,
+  ]);
+}
+
 export async function runAnalysisOrchestration(
   input: AnalysisInput,
   uploads: UploadAsset[] = [],
@@ -173,14 +217,22 @@ export async function runAnalysisOrchestration(
   trace.push(createTraceEntry("risk_scoring_tool", "completed", "Generated scaffolded risk scoring output."));
 
   const model = getActiveBedrockModel();
+  const degradedChecks = buildDegradedChecks({
+    messageModelId: messageSignals.modelIdUsed,
+    screenshotModelId: screenshotExtraction.modelIdUsed,
+    scoringModelId: riskSummary.modelIdUsed,
+    uploads,
+    hasMessageText: Boolean(input.messageText?.trim()),
+    brokerStatus: brokerVerification.status,
+  });
   const scopeNotes = uniqueList([
     ...(addressVerification.manhattanOnly
       ? ["This listing resolved within the Manhattan-focused MVP coverage area."]
       : ["This MVP is optimized for Manhattan listings, so non-Manhattan property checks may be less reliable."]),
     ...(uploads.length ? ["Screenshot evidence was included in the analysis workflow."] : []),
-    ...(unavailableChecks.length
-      ? [`Some checks were unavailable or skipped: ${unavailableChecks.join(", ")}.`]
-      : ["All currently wired checks completed for this submission."]),
+    ...(degradedChecks.length
+      ? ["Some checks completed with fallback logic rather than fully live provider/model output."]
+      : ["All currently wired checks completed without known fallback behavior."]),
   ]);
   const confidenceNote = buildConfidenceNote({
     unavailableChecks,
@@ -196,6 +248,15 @@ export async function runAnalysisOrchestration(
     company: messageSignals.company,
     uploads,
   });
+  const systemNotes = buildSystemNotes({
+    messageNotes: messageSignals.notes,
+    screenshotNotes: screenshotExtraction.notes,
+    scoringNotes: riskSummary.notes,
+    addressNotes: addressVerification.notes,
+    propertyNotes: propertyContext.notes,
+    rentNotes: rentContext.notes,
+    brokerNotes: brokerVerification.notes,
+  });
 
   return {
     data: {
@@ -204,6 +265,8 @@ export async function runAnalysisOrchestration(
       extractedFacts: {
         ...mockAnalysisResult.extractedFacts,
         address: parsedListing.address,
+        borough: addressVerification.borough ?? mockAnalysisResult.borough,
+        neighborhood: addressVerification.neighborhood ?? mockAnalysisResult.neighborhood,
         claimedRent: parsedListing.extractedRent,
         brokerName: messageSignals.brokerName,
         company: messageSignals.company,
@@ -214,11 +277,12 @@ export async function runAnalysisOrchestration(
       normalizedAddress: addressVerification.normalizedAddress ?? mockAnalysisResult.normalizedAddress,
       summary: riskSummary.summary,
       confidenceNote,
+      systemNotes,
       rankedFactors: riskSummary.rankedFactors,
       recommendedNextSteps: riskSummary.recommendedNextSteps,
       verifiedFacts,
       checksRun: trace.filter((entry) => entry.status === "completed").map((entry) => entry.toolName),
-      unavailableChecks,
+      unavailableChecks: uniqueList([...unavailableChecks, ...degradedChecks]),
       scopeNotes,
       createdAt: new Date().toISOString(),
       score: riskSummary.score,
@@ -228,17 +292,14 @@ export async function runAnalysisOrchestration(
       extractedRent: parsedListing.extractedRent,
       extractedBrokerName: messageSignals.brokerName,
       extractedCompany: messageSignals.company,
-      modelIdUsed:
-        riskSummary.modelIdUsed !== "deterministic-fallback" ? riskSummary.modelIdUsed : model.activeModelId,
+      configuredModelId: model.activeModelId,
+      modelIdUsed: riskSummary.modelIdUsed,
       unverifiedOrMissing: uniqueList([
-        ...(uploads.length
-          ? [`Screenshot OCR confidence is currently mocked across ${uploads.length} uploaded file(s).`]
-          : []),
-        ...messageSignals.notes,
-        ...screenshotExtraction.notes,
-        ...riskSummary.notes,
-        ...addressVerification.notes,
-        ...propertyContext.notes,
+        !brokerVerification.matched ? "Broker identity could not be independently confirmed." : "",
+        uploads.length && screenshotExtraction.modelIdUsed === "mock-fallback"
+          ? "Uploaded screenshots were included, but extracted screenshot text could not be fully confirmed from live multimodal analysis."
+          : "",
+        "No independently verified unit availability source is connected yet.",
       ]),
     },
     trace,

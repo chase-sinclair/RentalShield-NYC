@@ -8,6 +8,7 @@ interface ScoreDisplayProps {
   label: ScamRiskLabel;
   summary: string;
   confidenceNote: string;
+  configuredModelId: string;
   modelIdUsed: string;
 }
 
@@ -17,7 +18,16 @@ const labelStyles: Record<ScamRiskLabel, string> = {
   high: "bg-red-100 text-red-900",
 };
 
-export function ScoreDisplay({ score, label, summary, confidenceNote, modelIdUsed }: ScoreDisplayProps) {
+export function ScoreDisplay({
+  score,
+  label,
+  summary,
+  confidenceNote,
+  configuredModelId,
+  modelIdUsed,
+}: ScoreDisplayProps) {
+  const usedFallback = modelIdUsed.includes("fallback");
+
   return (
     <Card className="overflow-hidden p-0">
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
@@ -43,9 +53,14 @@ export function ScoreDisplay({ score, label, summary, confidenceNote, modelIdUse
             </div>
             <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Model used
+                Execution mode
               </p>
-              <p className="mt-2 break-all text-sm leading-6 text-foreground">{modelIdUsed}</p>
+              <p className="mt-2 break-all text-sm leading-6 text-foreground">
+                {usedFallback ? "Fallback logic was used for the final risk score." : modelIdUsed}
+              </p>
+              <p className="mt-2 break-all text-xs leading-5 text-muted-foreground">
+                Configured primary model: {configuredModelId}
+              </p>
             </div>
           </div>
         </div>

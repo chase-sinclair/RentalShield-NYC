@@ -41,6 +41,7 @@ export interface AnalysisResult {
   label: ScamRiskLabel;
   summary: string;
   confidenceNote: string;
+  systemNotes: string[];
   rankedFactors: RankedFactor[];
   verifiedFacts: VerifiedFact[];
   unverifiedOrMissing: string[];
@@ -53,6 +54,7 @@ export interface AnalysisResult {
   extractedRent?: number;
   extractedBrokerName?: string;
   extractedCompany?: string;
+  configuredModelId: string;
   modelIdUsed: string;
   disclaimer: string;
   checksRun: string[];
