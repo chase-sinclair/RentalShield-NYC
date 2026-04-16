@@ -713,3 +713,14 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Narrowed the "What still needs verification" list to actual user-facing gaps instead of mixing in internal fallback/provider messages.
 - Ran a direct Bedrock invocation test against the configured model in `.env.local` and confirmed AWS connectivity is working, but the configured model ID `anthropic.claude-3-7-sonnet-20250219-v1:0` was rejected with a `ValidationException` because on-demand invocation is not supported for that model and Bedrock expects an inference profile ID or ARN instead.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the follow-up fix. Validation passed cleanly.
+
+### Post-Phase Follow-Up - Sonnet 4 Integration And Multimodal Uploads
+- Updated `.env.local` to use the active Bedrock inference profile `global.anthropic.claude-sonnet-4-20250514-v1:0`, and confirmed direct Bedrock text invocation succeeds.
+- Confirmed Supabase persistence is now working end to end after the `rental_analyses` table was created.
+- Reworked uploads so `/api/upload` stages real image bytes in a temporary in-memory store and `/api/analyze` resolves those staged uploads before orchestration.
+- Added Bedrock multimodal invocation support that sends actual screenshot image bytes to Sonnet 4 instead of metadata-only placeholders.
+- Tightened prompt contracts and normalization logic for message extraction, screenshot extraction, and risk scoring so Sonnet 4 responses can be parsed more flexibly.
+- Verified direct Bedrock multimodal calls succeed with a normal generated PNG, and verified the live app now uses Bedrock-backed screenshot extraction and Bedrock-backed message extraction in end-to-end analysis runs.
+- Verified the RentCast path improved after API-key activation, while broker verification still falls back when not enough broker info is supplied or the provider cannot verify a match.
+- Remaining open issue: live end-to-end risk scoring still falls back to `deterministic-fallback` inside the app runtime, even though isolated direct Bedrock scoring probes return valid structured JSON for the same prompt shape and evidence bundle. This is the main next-session debugging target.
+- Last validated state: `npm run lint`, `npm run typecheck`, and `npm run build` all passed after the Sonnet 4 / multimodal upload changes.
