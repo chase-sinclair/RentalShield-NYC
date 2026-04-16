@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 42 33% 97%;
+  --foreground: 220 26% 16%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 26% 16%;
+  --primary: 211 36% 26%;
+  --primary-foreground: 44 33% 98%;
+  --secondary: 205 25% 92%;
+  --secondary-foreground: 214 34% 22%;
+  --muted: 40 18% 93%;
+  --muted-foreground: 215 16% 38%;
+  --accent: 198 32% 90%;
+  --accent-foreground: 214 39% 23%;
+  --destructive: 2 76% 58%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 36 15% 84%;
+  --input: 36 15% 84%;
+  --ring: 211 36% 26%;
+}
+
+* {
+  @apply border-border;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+  background-image: radial-gradient(circle at top, rgba(120, 146, 178, 0.18), transparent 36%),
+    linear-gradient(180deg, #faf8f3 0%, #f4f3ef 40%, #eef1f3 100%);
+  min-height: 100vh;
+}
+
+a {
+  @apply text-inherit no-underline;
+}
+
+.text-balance {
+  text-wrap: balance;
+}

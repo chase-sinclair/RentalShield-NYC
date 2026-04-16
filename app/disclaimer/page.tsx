@@ -1,0 +1,33 @@
+import { DisclaimerBanner } from "@/components/disclaimer-banner";
+import { SectionCard } from "@/components/section-card";
+
+export default function DisclaimerPage() {
+  return (
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+      <SectionCard
+        eyebrow="Disclaimer"
+        title="Important limitations"
+        description="The scaffold includes trust-oriented language from day one so the MVP does not overstate certainty."
+      >
+        <DisclaimerBanner />
+      </SectionCard>
+
+      <SectionCard
+        eyebrow="Scope"
+        title="Manhattan-only V1"
+        description="If an address resolves outside Manhattan, the app should continue with message-based checks while explaining that property-specific verification may be limited."
+      >
+        <div className="space-y-3 text-sm leading-7 text-muted-foreground">
+          <p>
+            RentalShield NYC is an informational product, not a legal service. Users should still
+            independently verify the property, the identity of the broker or landlord, and the lease process.
+          </p>
+          <p>
+            External checks for geocoding, rent comparison, license lookup, OCR, and Bedrock scoring
+            are scaffolded in this MVP but intentionally left as TODO-backed service integrations.
+          </p>
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
