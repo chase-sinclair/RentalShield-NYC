@@ -685,3 +685,10 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Upgraded broker verification to attempt a live license-lookup fetch when configured, while preserving safe fallback behavior and explanatory notes if matching cannot be completed.
 - Refined address verification, rent comparison, and property context services so Manhattan-specific limitations are surfaced explicitly instead of silently failing.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after Phase 4. Validation passed cleanly.
+
+### Phase 5 Complete - Scoring And Results Explainability
+- Expanded the analysis result contract with confidence framing and scope notes so the final assessment explains both the outcome and its reliability.
+- Refined orchestration to assemble clearer verified facts, scope-aware notes, unavailable check messaging, and a more polished explainability payload from the current evidence.
+- Upgraded the results UI with an analysis overview section, richer score framing, model visibility, and better extracted-signal presentation for urgency and tour limitations.
+- Cleaned up risk-factor presentation so severity/evidence labels read more intentionally and the result page feels closer to a portfolio-quality trust product.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after Phase 5. Validation passed cleanly.

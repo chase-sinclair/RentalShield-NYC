@@ -16,6 +16,53 @@ function uniqueList(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function buildConfidenceNote(input: {
+  unavailableChecks: string[];
+  uploads: UploadAsset[];
+  modelIdUsed: string;
+}) {
+  if (input.unavailableChecks.length === 0 && input.modelIdUsed !== "deterministic-fallback") {
+    return "This estimate includes live tool checks and model reasoning, but it should still be treated as decision support rather than proof.";
+  }
+
+  if (input.unavailableChecks.length > 0) {
+    return "This estimate is directionally useful, but some checks were unavailable or partially mocked, so independent verification is still important.";
+  }
+
+  if (input.uploads.length > 0) {
+    return "Screenshot evidence improved coverage, but OCR and reasoning confidence may vary with image quality and source completeness.";
+  }
+
+  return "This estimate is based on the evidence currently available and should be used as a screening aid, not a final determination.";
+}
+
+function buildVerifiedFacts(input: {
+  normalizedAddress?: string;
+  borough?: string;
+  neighborhood?: string;
+  extractedRent?: number;
+  brokerName?: string;
+  company?: string;
+  uploads: UploadAsset[];
+}) {
+  return uniqueList([
+    input.normalizedAddress ? `Address|${input.normalizedAddress}|Address verification tool` : "",
+    input.borough ? `Borough|${input.borough}|Geocoding` : "",
+    input.neighborhood ? `Neighborhood|${input.neighborhood}|Geocoding` : "",
+    typeof input.extractedRent === "number"
+      ? `Claimed rent|$${input.extractedRent.toLocaleString()}|Listing parser + extraction`
+      : "",
+    input.brokerName ? `Claimed broker|${input.brokerName}|Message extraction` : "",
+    input.company ? `Claimed company|${input.company}|Message extraction` : "",
+    input.uploads.length
+      ? `Screenshot evidence received|${input.uploads.length} file${input.uploads.length === 1 ? "" : "s"} uploaded|Upload validation`
+      : "",
+  ]).map((item) => {
+    const [label, value, source] = item.split("|");
+    return { label, value, source };
+  });
+}
+
 export async function runAnalysisOrchestration(
   input: AnalysisInput,
   uploads: UploadAsset[] = [],
@@ -126,6 +173,29 @@ export async function runAnalysisOrchestration(
   trace.push(createTraceEntry("risk_scoring_tool", "completed", "Generated scaffolded risk scoring output."));
 
   const model = getActiveBedrockModel();
+  const scopeNotes = uniqueList([
+    ...(addressVerification.manhattanOnly
+      ? ["This listing resolved within the Manhattan-focused MVP coverage area."]
+      : ["This MVP is optimized for Manhattan listings, so non-Manhattan property checks may be less reliable."]),
+    ...(uploads.length ? ["Screenshot evidence was included in the analysis workflow."] : []),
+    ...(unavailableChecks.length
+      ? [`Some checks were unavailable or skipped: ${unavailableChecks.join(", ")}.`]
+      : ["All currently wired checks completed for this submission."]),
+  ]);
+  const confidenceNote = buildConfidenceNote({
+    unavailableChecks,
+    uploads,
+    modelIdUsed: riskSummary.modelIdUsed,
+  });
+  const verifiedFacts = buildVerifiedFacts({
+    normalizedAddress: addressVerification.normalizedAddress ?? undefined,
+    borough: addressVerification.borough ?? undefined,
+    neighborhood: addressVerification.neighborhood ?? undefined,
+    extractedRent: parsedListing.extractedRent,
+    brokerName: messageSignals.brokerName,
+    company: messageSignals.company,
+    uploads,
+  });
 
   return {
     data: {
@@ -143,22 +213,13 @@ export async function runAnalysisOrchestration(
       },
       normalizedAddress: addressVerification.normalizedAddress ?? mockAnalysisResult.normalizedAddress,
       summary: riskSummary.summary,
+      confidenceNote,
       rankedFactors: riskSummary.rankedFactors,
       recommendedNextSteps: riskSummary.recommendedNextSteps,
-      verifiedFacts: [
-        ...mockAnalysisResult.verifiedFacts,
-        ...(uploads.length
-          ? [
-              {
-                label: "Screenshot evidence received",
-                value: `${uploads.length} file${uploads.length === 1 ? "" : "s"} uploaded`,
-                source: "Upload validation",
-              },
-            ]
-          : []),
-      ],
+      verifiedFacts,
       checksRun: trace.filter((entry) => entry.status === "completed").map((entry) => entry.toolName),
       unavailableChecks,
+      scopeNotes,
       createdAt: new Date().toISOString(),
       score: riskSummary.score,
       label: riskSummary.label,
@@ -170,7 +231,6 @@ export async function runAnalysisOrchestration(
       modelIdUsed:
         riskSummary.modelIdUsed !== "deterministic-fallback" ? riskSummary.modelIdUsed : model.activeModelId,
       unverifiedOrMissing: uniqueList([
-        ...mockAnalysisResult.unverifiedOrMissing,
         ...(uploads.length
           ? [`Screenshot OCR confidence is currently mocked across ${uploads.length} uploaded file(s).`]
           : []),

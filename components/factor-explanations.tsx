@@ -1,6 +1,6 @@
-import type { RankedFactor } from "@/types";
-
 import { SectionCard } from "@/components/section-card";
+import { formatRiskLabel } from "@/lib/utils/format";
+import type { RankedFactor } from "@/types";
 
 interface FactorExplanationsProps {
   factors: RankedFactor[];
@@ -26,7 +26,7 @@ export function FactorExplanations({ factors }: FactorExplanationsProps) {
               </div>
             </div>
             <p className="mt-3 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              Severity: {factor.severity} • Evidence: {factor.evidenceSource}
+              Severity: {formatRiskLabel(factor.severity)} | Evidence: {factor.evidenceSource}
             </p>
           </div>
         ))}

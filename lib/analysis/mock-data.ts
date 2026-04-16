@@ -8,6 +8,8 @@ export const mockAnalysisResult: AnalysisResult = {
   label: "high",
   summary:
     "Several scam indicators were detected, including pressure-heavy language, a likely below-market rent, and incomplete broker verification.",
+  confidenceNote:
+    "This estimate is useful for screening, but some checks remain mocked or partially unavailable, so it should not replace independent verification.",
   rankedFactors: [
     {
       title: "Quoted rent appears meaningfully below neighborhood context",
@@ -59,6 +61,10 @@ export const mockAnalysisResult: AnalysisResult = {
     "Request an in-person or verified live virtual tour before sending funds.",
     "Verify the broker license independently through New York state licensing tools.",
     "Confirm lease terms, address, and payment instructions before sharing personal information.",
+  ],
+  scopeNotes: [
+    "This sample result reflects the Manhattan-focused MVP flow.",
+    "Some checks in the sample remain mocked to preserve demo readiness before all providers are wired live.",
   ],
   extractedFacts: {
     address: "245 W 73rd St",

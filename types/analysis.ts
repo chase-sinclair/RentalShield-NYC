@@ -40,10 +40,12 @@ export interface AnalysisResult {
   score: number;
   label: ScamRiskLabel;
   summary: string;
+  confidenceNote: string;
   rankedFactors: RankedFactor[];
   verifiedFacts: VerifiedFact[];
   unverifiedOrMissing: string[];
   recommendedNextSteps: string[];
+  scopeNotes: string[];
   extractedFacts: ExtractedFacts;
   normalizedAddress?: string;
   borough?: string;

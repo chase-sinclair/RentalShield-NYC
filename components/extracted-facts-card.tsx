@@ -31,6 +31,44 @@ export function ExtractedFactsCard({ facts }: ExtractedFactsCardProps) {
           </div>
         ))}
       </div>
+
+      {(facts.urgencySignals.length > 0 || facts.tourLimitations.length > 0) ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              Urgency Signals
+            </p>
+            <div className="mt-3 space-y-2">
+              {facts.urgencySignals.length ? (
+                facts.urgencySignals.map((item) => (
+                  <p className="text-sm leading-6 text-foreground" key={item}>
+                    {item}
+                  </p>
+                ))
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">No urgency language extracted.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              Tour Limitations
+            </p>
+            <div className="mt-3 space-y-2">
+              {facts.tourLimitations.length ? (
+                facts.tourLimitations.map((item) => (
+                  <p className="text-sm leading-6 text-foreground" key={item}>
+                    {item}
+                  </p>
+                ))
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">No tour limitations extracted.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </SectionCard>
   );
 }
