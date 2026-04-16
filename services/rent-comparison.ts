@@ -13,10 +13,14 @@ export async function compareRent(address?: string, claimedRent?: number) {
 
   return {
     status: "completed" as const,
+    source: context.source,
     belowRange,
     typicalRangeLow: context.typicalRangeLow,
     typicalRangeHigh: context.typicalRangeHigh,
     claimedRent,
-    notes: belowRange ? ["Claimed rent is below the mock range for this area."] : [],
+    notes: [
+      ...(belowRange ? ["Claimed rent is below the current estimated range for this area."] : []),
+      ...(context.notes ?? []),
+    ],
   };
 }

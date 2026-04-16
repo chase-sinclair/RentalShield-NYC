@@ -678,3 +678,10 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Upgraded message extraction, screenshot OCR, and scam scoring services to prefer Bedrock responses while falling back to deterministic/mock logic when Bedrock is unavailable.
 - Updated orchestration so extraction notes, screenshot evidence, dynamic ranked factors, and model-aware scoring outputs flow into the analysis result.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after Phase 3. Validation passed cleanly.
+
+### Phase 4 Complete - External Integration Layer
+- Implemented Google Maps geocoding integration with live fetch support, parsed borough/neighborhood details, Manhattan detection, request timeouts, and graceful fallback behavior.
+- Implemented RentCast rent-context integration with live fetch support, estimated pricing ranges, timeout handling, and fallback notes when live data is unavailable.
+- Upgraded broker verification to attempt a live license-lookup fetch when configured, while preserving safe fallback behavior and explanatory notes if matching cannot be completed.
+- Refined address verification, rent comparison, and property context services so Manhattan-specific limitations are surfaced explicitly instead of silently failing.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after Phase 4. Validation passed cleanly.

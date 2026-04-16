@@ -17,8 +17,11 @@ export async function verifyAddress(address?: string) {
   return {
     ...result,
     status: "completed" as const,
-    notes: result.manhattanOnly
-      ? []
-      : ["This MVP is optimized for Manhattan listings; some checks may be limited."],
+    notes: [
+      ...result.notes,
+      ...(result.manhattanOnly
+        ? []
+        : ["This MVP is optimized for Manhattan listings; some checks may be limited."]),
+    ],
   };
 }
