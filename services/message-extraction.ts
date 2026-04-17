@@ -29,6 +29,31 @@ function toConfidence(value: unknown, fallback = 0.5) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function sanitizeMessageSignals(signals: ExtractionSignalSet): ExtractionSignalSet {
+  const benignPatterns = [
+    /specific time window/i,
+    /showings? only this week/i,
+    /between\s+\d/i,
+    /standard application/i,
+    /government-issued id/i,
+    /proof of income/i,
+    /pay stubs?/i,
+    /credit check/i,
+    /guarantor/i,
+    /12 months?/i,
+    /move-in/i,
+    /broker fees? may apply/i,
+  ];
+
+  const isBenign = (value: string) => benignPatterns.some((pattern) => pattern.test(value));
+
+  return {
+    ...signals,
+    urgencySignals: signals.urgencySignals.filter((signal) => !isBenign(signal)),
+    tourLimitations: signals.tourLimitations.filter((signal) => !isBenign(signal)),
+  };
+}
+
 function normalizeExtractionSignalSet(value: unknown): ExtractionSignalSet {
   const payload = value as Record<string, unknown>;
 
@@ -103,7 +128,7 @@ export async function extractMessageSignals(input: Pick<AnalysisInput, "messageT
     const normalized = normalizeExtractionSignalSet(response.data);
 
     return {
-      ...normalized,
+      ...sanitizeMessageSignals(normalized),
       modelIdUsed: response.modelIdUsed,
     };
   } catch (error) {

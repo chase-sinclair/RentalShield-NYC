@@ -60,17 +60,21 @@ function normalizeRankedFactors(
       }
 
       const fallbackMatch = fallbackFactors.find((factor) => factor.title.toLowerCase() === title.toLowerCase());
+      if (!fallbackMatch) {
+        return null;
+      }
+
       const severity = item.severity === "low" || item.severity === "medium" || item.severity === "high"
         ? item.severity
-        : fallbackMatch?.severity ?? "medium";
+        : fallbackMatch.severity;
       const contribution =
         typeof item.contribution === "number" && Number.isFinite(item.contribution)
           ? item.contribution
-          : fallbackMatch?.contribution ?? 12;
+          : fallbackMatch.contribution;
       const explanation =
         (typeof item.explanation === "string" && item.explanation.trim()) ||
         (typeof item.evidence === "string" && item.evidence.trim()) ||
-        fallbackMatch?.explanation ||
+        fallbackMatch.explanation ||
         `${title} contributed to the current scam estimate.`;
 
       return {
@@ -78,7 +82,7 @@ function normalizeRankedFactors(
         severity,
         contribution,
         explanation,
-        evidenceSource: toEvidenceSource(item.evidenceSource ?? item.source, fallbackMatch?.evidenceSource ?? "tool"),
+        evidenceSource: toEvidenceSource(item.evidenceSource ?? item.source, fallbackMatch.evidenceSource),
       } satisfies RankedFactor;
     })
     .filter((item): item is RankedFactor => Boolean(item));
@@ -88,11 +92,11 @@ function normalizeRankedFactors(
 
 function normalizeRiskScoringResult(value: unknown, fallbackFactors: RankedFactor[]): Omit<RiskScoringResult, "modelIdUsed"> {
   const payload = value as Record<string, unknown>;
+  const normalizedFactors = normalizeRankedFactors(payload.rankedFactors, fallbackFactors);
   const fallbackScore = fallbackFactors.reduce((total, factor) => total + factor.contribution, 0);
-  const score = typeof payload.score === "number" && Number.isFinite(payload.score) ? payload.score : fallbackScore;
-  const label = payload.label === "low" || payload.label === "medium" || payload.label === "high"
-    ? payload.label
-    : deriveLabel(score);
+  const scoreFromFactors = normalizedFactors.reduce((total, factor) => total + factor.contribution, 0);
+  const score = scoreFromFactors || (typeof payload.score === "number" && Number.isFinite(payload.score) ? payload.score : fallbackScore);
+  const label = deriveLabel(score);
 
   return {
     score,
@@ -100,7 +104,7 @@ function normalizeRiskScoringResult(value: unknown, fallbackFactors: RankedFacto
     summary:
       (typeof payload.summary === "string" && payload.summary.trim()) ||
       "Model scoring completed, but the summary was returned without a finalized explanation.",
-    rankedFactors: normalizeRankedFactors(payload.rankedFactors, fallbackFactors),
+    rankedFactors: normalizedFactors.length ? normalizedFactors : fallbackFactors,
     recommendedNextSteps: toStringArray(payload.recommendedNextSteps),
     notes: toStringArray(payload.notes),
   };

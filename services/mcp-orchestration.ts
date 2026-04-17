@@ -114,7 +114,13 @@ export async function runAnalysisOrchestration(
   const trace = [];
 
   const parsedListing = await parseListing(input);
-  trace.push(createTraceEntry("listing_parser_tool", "completed", "Parsed listing URL and rent hints."));
+  trace.push(
+    createTraceEntry(
+      "listing_parser_tool",
+      "completed",
+      parsedListing.notes.join(" ") || "Parsed listing URL and rent hints.",
+    ),
+  );
 
   const screenshotExtraction = await extractScreenshotText(uploads);
   trace.push(
@@ -201,7 +207,17 @@ export async function runAnalysisOrchestration(
   })) as AnalysisResult["rankedFactors"];
 
   const unavailableChecks = trace
-    .filter((entry) => entry.status !== "completed")
+    .filter((entry) => {
+      if (entry.status === "completed") {
+        return false;
+      }
+
+      if (entry.toolName === "ocr_or_multimodal_extraction_tool" && !uploads.length) {
+        return false;
+      }
+
+      return true;
+    })
     .map((entry) => entry.toolName);
 
   const riskSummary = await scoreScamRisk({
@@ -214,7 +230,7 @@ export async function runAnalysisOrchestration(
     rankedFactors,
     unavailableChecks,
   });
-  trace.push(createTraceEntry("risk_scoring_tool", "completed", "Generated scaffolded risk scoring output."));
+  trace.push(createTraceEntry("risk_scoring_tool", "completed", "Generated risk scoring output."));
 
   const model = getActiveBedrockModel();
   const degradedChecks = buildDegradedChecks({

@@ -733,3 +733,13 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Verified on a fresh server instance that end-to-end analysis now uses Sonnet 4 for screenshot extraction, message extraction, and final risk scoring with `modelIdUsed: global.anthropic.claude-sonnet-4-20250514-v1:0`.
 - Verified the live results payload now reports `All currently wired checks completed without known fallback behavior.` when broker verification is the only skipped tool due to missing broker details.
 - Ran `npm run lint`, `npm run typecheck`, and `npm run build` after the scoring-runtime fix. Validation passed cleanly.
+
+### Post-Phase Follow-Up - Clean Listing False Positive Fixed
+- Fixed a major false-positive path where `parseListing()` still returned scaffolded mock address data (`245 W 73rd St`) even for real StreetEasy URLs, which could create bogus address mismatches and inflated scam scores on legitimate listings.
+- Replaced the listing parser scaffold with heuristics that prefer an explicit address from the submitted message text and otherwise derive the building address from StreetEasy `/building/...` URL slugs.
+- Tightened message extraction prompts and post-processing so ordinary showing windows, standard application document lists, routine lease terms, and standard fee disclosures are not treated as scam signals by themselves.
+- Tightened Bedrock scoring normalization so the model cannot invent extra ranked factors outside the supplied candidate factor list, which reduces false-positive score inflation on clean submissions.
+- Updated orchestration so the OCR tool is not shown as a degraded or unavailable check when no screenshots were uploaded for the submission.
+- Re-tested the user's StreetEasy case for `432 East 11th Street #1W` with a clean, professional leasing email and confirmed the result now normalizes to the correct East Village address and returns a low-risk score (`15`, label `low`) instead of a false high-risk mismatch against the old mock West 73rd Street address.
+- Remaining caveat: the neighborhood label can still resolve generically as `Manhattan` instead of a more specific sub-neighborhood like `East Village`, depending on geocoding/provider output. This is a refinement item, not the false-positive blocker.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the clean-listing fix. Validation passed cleanly.

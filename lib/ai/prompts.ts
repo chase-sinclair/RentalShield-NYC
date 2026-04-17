@@ -32,6 +32,7 @@ Analyze the following landlord or broker communication and return JSON with:
 Rules:
 - Use null when brokerName or company are not stated.
 - Return short concrete strings, not long sentences, for urgencySignals and tourLimitations.
+- Do not treat normal showing windows, standard application documents, lease terms, or routine fee disclosures as scam signals by themselves.
 - Do not include markdown fences or commentary.
 
 Communication:
@@ -84,6 +85,7 @@ Rules:
 - Use evidenceSource values only from: "url", "message", "screenshot", "tool".
 - Do not introduce keys like "factor" or "evidence"; use the exact keys requested above.
 - Keep recommendedNextSteps to 3 to 5 concise actions.
+- Do not treat ordinary showing windows, standard application requirements, or routine lease terms as suspicious unless they are paired with payment pressure, identity inconsistencies, or refusal-to-show behavior.
 - Do not include markdown fences or commentary.
 
 Use these facts:
