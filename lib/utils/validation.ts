@@ -23,8 +23,18 @@ export const analyzeInputSchema = z
       .union([z.number().nonnegative(), z.nan()])
       .optional()
       .transform((value) => (Number.isNaN(value) ? undefined : value)),
+    contactRole: z.enum(["broker", "owner", "property_manager", "leasing_office", "unknown"]).optional(),
+    contactName: z.string().trim().optional(),
+    contactCompany: z.string().trim().optional(),
+    contactEmail: z.string().trim().email("Contact email must be a valid email address.").optional().or(z.literal("")),
+    contactPhone: z.string().trim().optional(),
+    contactLicenseNumber: z.string().trim().optional(),
     screenshotAssets: uploadAssetsSchema.optional(),
   })
+  .transform((value) => ({
+    ...value,
+    contactEmail: value.contactEmail?.trim() || undefined,
+  }))
   .superRefine((value, ctx) => {
     const hasUrl = Boolean(value.listingUrl);
     const hasMessage = Boolean(value.messageText);
@@ -42,6 +52,18 @@ export const analyzeInputSchema = z
         code: z.ZodIssueCode.custom,
         message: "Listing URL must be a valid http or https URL.",
         path: ["listingUrl"],
+      });
+    }
+
+    const hasAnyContactDetail = Boolean(
+      value.contactName || value.contactCompany || value.contactEmail || value.contactPhone || value.contactLicenseNumber,
+    );
+
+    if (hasAnyContactDetail && !value.contactRole) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose the contact role when you provide contact identity details.",
+        path: ["contactRole"],
       });
     }
   });

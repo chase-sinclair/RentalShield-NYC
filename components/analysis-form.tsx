@@ -12,18 +12,31 @@ import { saveAnalysisResult } from "@/lib/utils/analysis-storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { AnalysisResponse, UploadResponse } from "@/types";
+import type { AnalysisResponse, ContactRole, UploadResponse } from "@/types";
 
 interface AnalysisFormProps {
   compact?: boolean;
 }
 
 export function AnalysisForm({ compact = false }: AnalysisFormProps) {
+  const contactRoleOptions: { value: ContactRole; label: string }[] = [
+    { value: "broker", label: "Broker" },
+    { value: "owner", label: "Owner / landlord" },
+    { value: "property_manager", label: "Property manager" },
+    { value: "leasing_office", label: "Leasing office" },
+    { value: "unknown", label: "Unknown" },
+  ];
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [listingUrl, setListingUrl] = useState("");
   const [messageText, setMessageText] = useState("");
   const [manualRent, setManualRent] = useState("");
+  const [contactRole, setContactRole] = useState<ContactRole | "">("");
+  const [contactName, setContactName] = useState("");
+  const [contactCompany, setContactCompany] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactLicenseNumber, setContactLicenseNumber] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -107,6 +120,12 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
           listingUrl: listingUrl.trim() || undefined,
           messageText: messageText.trim() || undefined,
           manualRent: normalizedRent,
+          contactRole: contactRole || undefined,
+          contactName: contactName.trim() || undefined,
+          contactCompany: contactCompany.trim() || undefined,
+          contactEmail: contactEmail.trim() || undefined,
+          contactPhone: contactPhone.trim() || undefined,
+          contactLicenseNumber: contactLicenseNumber.trim() || undefined,
           screenshotAssets,
         }),
       });
@@ -205,8 +224,109 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
           onChange={(event) => setMessageText(event.target.value)}
         />
         <p className="text-sm text-muted-foreground" id="message-text-help">
-          Include pressure language, payment requests, touring limitations, and any claimed broker details.
+          Include pressure language, payment requests, showing details, and any claimed contact or company details.
         </p>
+      </div>
+
+      <div className="space-y-4 rounded-[1.5rem] border border-border bg-white/75 p-4">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-foreground">Optional contact identity details</h3>
+          <p className="text-sm text-muted-foreground">
+            Use this if the rental contact shared their role, name, company, phone, email, or license number.
+          </p>
+        </div>
+
+        <div className={`grid gap-4 ${compact ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="contact-role">
+              Contact role
+            </label>
+            <select
+              className="flex h-11 w-full rounded-2xl border border-border bg-white px-4 text-sm text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={submitting}
+              id="contact-role"
+              value={contactRole}
+              onChange={(event) => setContactRole(event.target.value as ContactRole | "")}
+            >
+              <option value="">Select if known</option>
+              {contactRoleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="contact-name">
+              Contact name
+            </label>
+            <Input
+              disabled={submitting}
+              id="contact-name"
+              placeholder="Jane Broker"
+              value={contactName}
+              onChange={(event) => setContactName(event.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className={`grid gap-4 ${compact ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="contact-company">
+              Company or management firm
+            </label>
+            <Input
+              disabled={submitting}
+              id="contact-company"
+              placeholder="ABC Realty"
+              value={contactCompany}
+              onChange={(event) => setContactCompany(event.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="contact-license-number">
+              License number
+            </label>
+            <Input
+              disabled={submitting}
+              id="contact-license-number"
+              placeholder="If provided"
+              value={contactLicenseNumber}
+              onChange={(event) => setContactLicenseNumber(event.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className={`grid gap-4 ${compact ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="contact-email">
+              Contact email
+            </label>
+            <Input
+              disabled={submitting}
+              id="contact-email"
+              placeholder="agent@realty.com"
+              type="email"
+              value={contactEmail}
+              onChange={(event) => setContactEmail(event.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="contact-phone">
+              Contact phone
+            </label>
+            <Input
+              disabled={submitting}
+              id="contact-phone"
+              placeholder="(212) 555-0198"
+              value={contactPhone}
+              onChange={(event) => setContactPhone(event.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       <UploadDropzone

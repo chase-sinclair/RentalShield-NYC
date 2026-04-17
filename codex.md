@@ -752,3 +752,11 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Added an integrated semicircle risk scale to the score card so the numeric risk score has an at-a-glance visual scale for low, medium, and high concern bands.
 - Updated assessment check labels to read more naturally in the UI instead of exposing raw internal tool IDs where possible.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after these refinements. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.
+
+### Post-Phase Follow-Up - Role-Aware Contact Identity Flow
+- Added optional contact identity fields to the submission form so users can specify whether the rental contact is a broker, owner, property manager, leasing office, or unknown, along with any provided name, company, email, phone, and license number.
+- Extended the analysis input contract and validation schema to carry those role-aware contact details through the API and orchestration pipeline.
+- Reworked the verification service from broker-only assumptions to a broader contact identity flow: non-broker roles now support neutral completeness-based handling, while the stronger broker-specific verification concern is reserved for contacts explicitly identified as brokers.
+- Updated orchestration and result assembly so extracted facts and verified facts show contact-oriented details rather than implying every contact is a broker.
+- Kept the broker-specific risk factor from applying by default to owners, managers, leasing offices, or unknown contacts with incomplete evidence, which should reduce false positives on legitimate non-broker rental flows.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the role-aware contact identity update. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.

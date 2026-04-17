@@ -1,10 +1,10 @@
 import { mockAnalysisResult } from "@/lib/analysis/mock-data";
 import { createTraceEntry } from "@/lib/mcp/orchestrator";
-import type { AnalysisInput, AnalysisResult, StagedUploadAsset, UploadAsset } from "@/types";
+import type { AnalysisInput, AnalysisResult, ContactRole, StagedUploadAsset, UploadAsset } from "@/types";
 
 import { verifyAddress } from "@/services/address-verification";
 import { getActiveBedrockModel } from "@/services/bedrock-model-selection";
-import { verifyBroker } from "@/services/broker-verification";
+import { verifyContactIdentity } from "@/services/broker-verification";
 import { parseListing } from "@/services/listing-parsing";
 import { extractMessageSignals } from "@/services/message-extraction";
 import { getPropertyContext } from "@/services/property-context";
@@ -14,6 +14,23 @@ import { extractScreenshotText } from "@/services/screenshot-ocr";
 
 function uniqueList(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function formatContactRole(role?: ContactRole) {
+  switch (role) {
+    case "broker":
+      return "Broker";
+    case "owner":
+      return "Owner / landlord";
+    case "property_manager":
+      return "Property manager";
+    case "leasing_office":
+      return "Leasing office";
+    case "unknown":
+      return "Unknown";
+    default:
+      return undefined;
+  }
 }
 
 function isSpecificNeighborhood(neighborhood?: string, borough?: string) {
@@ -87,6 +104,10 @@ function buildVerifiedFacts(input: {
   extractedRent?: number;
   brokerName?: string;
   company?: string;
+  contactRole?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  licenseNumber?: string;
   uploads: UploadAsset[];
 }) {
   return uniqueList([
@@ -96,8 +117,12 @@ function buildVerifiedFacts(input: {
     typeof input.extractedRent === "number"
       ? `Claimed rent|$${input.extractedRent.toLocaleString()}|Listing parser + extraction`
       : "",
-    input.brokerName ? `Claimed broker|${input.brokerName}|Message extraction` : "",
-    input.company ? `Claimed company|${input.company}|Message extraction` : "",
+    input.contactRole ? `Contact role|${input.contactRole}|Form input + extraction` : "",
+    input.brokerName ? `Contact name|${input.brokerName}|Form input + extraction` : "",
+    input.company ? `Claimed company|${input.company}|Form input + extraction` : "",
+    input.contactEmail ? `Contact email|${input.contactEmail}|Form input` : "",
+    input.contactPhone ? `Contact phone|${input.contactPhone}|Form input` : "",
+    input.licenseNumber ? `License number|${input.licenseNumber}|Form input` : "",
     input.uploads.length
       ? `Screenshot evidence received|${input.uploads.length} file${input.uploads.length === 1 ? "" : "s"} uploaded|Upload validation`
       : "",
@@ -111,13 +136,16 @@ function buildRecommendedNextSteps(input: {
   label: AnalysisResult["label"];
   score: number;
   currentSteps: string[];
-  brokerMissing: boolean;
+  role?: ContactRole;
+  contactMissing: boolean;
 }) {
   if (input.label === "low" && input.score <= 25) {
     return uniqueList([
       "Proceed with the showing and normal rental process if the apartment matches the listing in person.",
-      input.brokerMissing
-        ? "Ask for the broker or management company's full name and license details before applying."
+      input.contactMissing
+        ? input.role === "broker"
+          ? "Ask for the broker's full name, brokerage, and license details before applying."
+          : "Ask for the contact's full name, company, and direct contact details before applying."
         : "Keep the listing link, fee disclosures, and lease paperwork together as you move forward.",
       "Hold off on sending deposits or fees until the showing, lease terms, and payment instructions all line up in writing.",
     ]);
@@ -201,6 +229,13 @@ export async function runAnalysisOrchestration(
   });
   trace.push(createTraceEntry("message_extraction_tool", "completed", "Extracted message-level scam signals."));
 
+  const contactRole = input.contactRole ?? "unknown";
+  const contactName = input.contactName ?? messageSignals.brokerName;
+  const contactCompany = input.contactCompany ?? messageSignals.company;
+  const contactEmail = input.contactEmail;
+  const contactPhone = input.contactPhone;
+  const contactLicenseNumber = input.contactLicenseNumber;
+
   const addressVerification = await verifyAddress(parsedListing.address);
   trace.push(
     createTraceEntry(
@@ -213,7 +248,14 @@ export async function runAnalysisOrchestration(
   const propertyContext = await getPropertyContext(addressVerification.normalizedAddress);
   trace.push(createTraceEntry("nyc_property_context_tool", "completed", "Loaded property plausibility placeholder."));
 
-  const brokerVerification = await verifyBroker(messageSignals.brokerName, messageSignals.company);
+  const brokerVerification = await verifyContactIdentity({
+    role: contactRole,
+    name: contactName,
+    company: contactCompany,
+    email: contactEmail,
+    phone: contactPhone,
+    licenseNumber: contactLicenseNumber,
+  });
   trace.push(
     createTraceEntry(
       "broker_verification_tool",
@@ -244,7 +286,7 @@ export async function runAnalysisOrchestration(
     ...messageSignals.urgencySignals,
     ...messageSignals.tourLimitations,
     ...(uploads.length ? ["Screenshot evidence contains rental scam review signals"] : []),
-    ...(brokerVerification.status !== "skipped" && !brokerVerification.matched
+    ...(contactRole === "broker" && brokerVerification.shouldPenalize
       ? ["Broker identity could not be confidently verified"]
       : []),
   ]).map((title, index) => ({
@@ -333,8 +375,12 @@ export async function runAnalysisOrchestration(
     neighborhood: resolvedNeighborhood.value ?? undefined,
     neighborhoodSource: resolvedNeighborhood.source,
     extractedRent: parsedListing.extractedRent,
-    brokerName: messageSignals.brokerName,
-    company: messageSignals.company,
+    brokerName: contactName,
+    company: contactCompany,
+    contactRole: formatContactRole(contactRole),
+    contactEmail,
+    contactPhone,
+    licenseNumber: contactLicenseNumber,
     uploads,
   });
   const systemNotes = buildSystemNotes({
@@ -357,8 +403,12 @@ export async function runAnalysisOrchestration(
         borough: addressVerification.borough ?? mockAnalysisResult.borough,
         neighborhood: resolvedNeighborhood.value ?? mockAnalysisResult.neighborhood,
         claimedRent: parsedListing.extractedRent,
-        brokerName: messageSignals.brokerName,
-        company: messageSignals.company,
+        contactRole,
+        brokerName: contactName,
+        company: contactCompany,
+        contactEmail,
+        contactPhone,
+        licenseNumber: contactLicenseNumber,
         paymentMethod: messageSignals.paymentMethod,
         urgencySignals: messageSignals.urgencySignals,
         tourLimitations: messageSignals.tourLimitations,
@@ -372,7 +422,8 @@ export async function runAnalysisOrchestration(
         label: riskSummary.label,
         score: riskSummary.score,
         currentSteps: riskSummary.recommendedNextSteps,
-        brokerMissing: !brokerVerification.matched,
+        role: contactRole,
+        contactMissing: !brokerVerification.matched,
       }),
       verifiedFacts,
       checksRun: trace.filter((entry) => entry.status === "completed").map((entry) => entry.toolName),
@@ -384,12 +435,17 @@ export async function runAnalysisOrchestration(
       borough: addressVerification.borough ?? mockAnalysisResult.borough,
       neighborhood: resolvedNeighborhood.value ?? mockAnalysisResult.neighborhood,
       extractedRent: parsedListing.extractedRent,
-      extractedBrokerName: messageSignals.brokerName,
-      extractedCompany: messageSignals.company,
+      extractedContactRole: contactRole,
+      extractedBrokerName: contactName,
+      extractedCompany: contactCompany,
       configuredModelId: model.activeModelId,
       modelIdUsed: riskSummary.modelIdUsed,
       unverifiedOrMissing: uniqueList([
-        !brokerVerification.matched ? "Broker identity could not be independently confirmed." : "",
+        !brokerVerification.matched
+          ? contactRole === "broker"
+            ? "Broker identity could not be independently confirmed."
+            : "Contact identity could not be independently confirmed from the submitted details."
+          : "",
         uploads.length && screenshotExtraction.modelIdUsed === "mock-fallback"
           ? "Uploaded screenshots were included, but extracted screenshot text could not be fully confirmed from live multimodal analysis."
           : "",

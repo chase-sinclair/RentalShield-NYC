@@ -1,6 +1,7 @@
 export type ScamRiskLabel = "low" | "medium" | "high";
 export type Severity = "low" | "medium" | "high";
 export type EvidenceSource = "url" | "message" | "screenshot" | "tool";
+export type ContactRole = "broker" | "owner" | "property_manager" | "leasing_office" | "unknown";
 
 export interface RankedFactor {
   title: string;
@@ -21,8 +22,12 @@ export interface ExtractedFacts {
   borough?: string;
   neighborhood?: string;
   claimedRent?: number;
+  contactRole?: ContactRole;
   brokerName?: string;
   company?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  licenseNumber?: string;
   paymentMethod?: string;
   urgencySignals: string[];
   tourLimitations: string[];
@@ -32,6 +37,12 @@ export interface AnalysisInput {
   listingUrl?: string;
   messageText?: string;
   manualRent?: number;
+  contactRole?: ContactRole;
+  contactName?: string;
+  contactCompany?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactLicenseNumber?: string;
   screenshotAssets?: UploadAsset[];
 }
 
@@ -52,6 +63,7 @@ export interface AnalysisResult {
   borough?: string;
   neighborhood?: string;
   extractedRent?: number;
+  extractedContactRole?: ContactRole;
   extractedBrokerName?: string;
   extractedCompany?: string;
   configuredModelId: string;

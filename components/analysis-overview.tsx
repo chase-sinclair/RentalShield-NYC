@@ -10,7 +10,7 @@ interface AnalysisOverviewProps {
 }
 
 const CHECK_LABELS: Record<string, string> = {
-  broker_verification_tool: "Broker verification could not run from the submitted details.",
+  broker_verification_tool: "Contact identity verification could not fully run from the submitted details.",
   ocr_or_multimodal_extraction_tool: "Screenshot extraction had limited or unavailable coverage.",
   message_extraction_tool: "Message extraction had limited or unavailable coverage.",
   risk_scoring_tool: "Risk scoring had limited or unavailable coverage.",

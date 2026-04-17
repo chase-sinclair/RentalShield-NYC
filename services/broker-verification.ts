@@ -1,11 +1,67 @@
 import { serverEnv } from "@/lib/config/env";
+import type { ContactRole } from "@/types";
 
-export async function verifyBroker(brokerName?: string, company?: string) {
-  if (!brokerName && !company) {
+interface VerifyContactIdentityInput {
+  role?: ContactRole;
+  name?: string;
+  company?: string;
+  email?: string;
+  phone?: string;
+  licenseNumber?: string;
+}
+
+function hasVerifiableIdentityDetails(input: VerifyContactIdentityInput) {
+  return Boolean(input.name || input.company || input.email || input.phone || input.licenseNumber);
+}
+
+function countSupportingIdentitySignals(input: VerifyContactIdentityInput) {
+  return [input.company, input.email, input.phone, input.licenseNumber].filter(Boolean).length;
+}
+
+function getRoleLabel(role?: ContactRole) {
+  switch (role) {
+    case "broker":
+      return "broker";
+    case "owner":
+      return "owner";
+    case "property_manager":
+      return "property manager";
+    case "leasing_office":
+      return "leasing office";
+    case "unknown":
+      return "contact";
+    default:
+      return "contact";
+  }
+}
+
+export async function verifyContactIdentity(input: VerifyContactIdentityInput) {
+  const role = input.role ?? "unknown";
+  const roleLabel = getRoleLabel(role);
+  const hasDetails = hasVerifiableIdentityDetails(input);
+
+  if (!hasDetails) {
     return {
       status: "skipped" as const,
       matched: false,
-      notes: ["Not enough broker information was supplied to verify identity."],
+      shouldPenalize: false,
+      notes: [`Not enough ${roleLabel} identity details were supplied to verify this contact.`],
+    };
+  }
+
+  if (role !== "broker") {
+    const signalCount = countSupportingIdentitySignals(input);
+
+    return {
+      status: "completed" as const,
+      matched: signalCount >= 1,
+      shouldPenalize: false,
+      confidence: signalCount >= 2 ? 0.7 : 0.55,
+      notes: [
+        signalCount >= 2
+          ? `Submitted ${roleLabel} details include multiple identity signals that can support follow-up verification.`
+          : `Submitted ${roleLabel} details are partial, so identity is better treated as unconfirmed rather than suspicious.`,
+      ],
     };
   }
 
@@ -13,13 +69,16 @@ export async function verifyBroker(brokerName?: string, company?: string) {
     return {
       status: "mock" as const,
       matched: false,
+      shouldPenalize: false,
       confidence: 0.34,
-      notes: ["Broker verification is using fallback behavior because no license lookup base URL is configured."],
+      notes: [
+        "Official broker registry lookup is not currently configured, so broker identity is being treated as unconfirmed rather than failed.",
+      ],
     };
   }
 
   try {
-    const query = [brokerName, company].filter(Boolean).join(" ").trim();
+    const query = [input.licenseNumber, input.name, input.company].filter(Boolean).join(" ").trim();
     const params = new URLSearchParams({
       search: query,
     });
@@ -35,22 +94,25 @@ export async function verifyBroker(brokerName?: string, company?: string) {
 
     const html = await response.text();
     const normalizedHtml = html.toLowerCase();
-    const brokerMatch = brokerName ? normalizedHtml.includes(brokerName.toLowerCase()) : false;
-    const companyMatch = company ? normalizedHtml.includes(company.toLowerCase()) : false;
-    const matched = brokerMatch || companyMatch;
+    const brokerMatch = input.name ? normalizedHtml.includes(input.name.toLowerCase()) : false;
+    const companyMatch = input.company ? normalizedHtml.includes(input.company.toLowerCase()) : false;
+    const licenseMatch = input.licenseNumber ? normalizedHtml.includes(input.licenseNumber.toLowerCase()) : false;
+    const matched = brokerMatch || companyMatch || licenseMatch;
 
     return {
       status: "completed" as const,
       matched,
-      confidence: matched ? 0.74 : 0.41,
+      shouldPenalize: !matched,
+      confidence: matched ? 0.78 : 0.44,
       notes: matched
-        ? ["A possible broker or company match was found in the NY license lookup response."]
-        : ["No confident broker or company match was found in the NY license lookup response."],
+        ? ["A possible broker match was found in the current license lookup response."]
+        : ["No confident broker match was found in the current license lookup response."],
     };
   } catch (error) {
     return {
       status: "mock" as const,
       matched: false,
+      shouldPenalize: false,
       confidence: 0.34,
       notes: [
         error instanceof Error
