@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     listingUrl?: string;
     messageText?: string;
     manualRent?: number;
-    contactRole?: "broker" | "owner" | "property_manager" | "leasing_office" | "unknown";
+    contactRole?: "broker_agent" | "owner" | "property_manager" | "leasing_office" | "unknown";
     contactName?: string;
     contactCompany?: string;
     contactEmail?: string;

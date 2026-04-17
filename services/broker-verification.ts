@@ -20,7 +20,7 @@ function countSupportingIdentitySignals(input: VerifyContactIdentityInput) {
 
 function getRoleLabel(role?: ContactRole) {
   switch (role) {
-    case "broker":
+    case "broker_agent":
       return "broker";
     case "owner":
       return "owner";
@@ -49,7 +49,7 @@ export async function verifyContactIdentity(input: VerifyContactIdentityInput) {
     };
   }
 
-  if (role !== "broker") {
+  if (role !== "broker_agent") {
     const signalCount = countSupportingIdentitySignals(input);
 
     return {

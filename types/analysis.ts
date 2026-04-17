@@ -1,7 +1,7 @@
 export type ScamRiskLabel = "low" | "medium" | "high";
 export type Severity = "low" | "medium" | "high";
 export type EvidenceSource = "url" | "message" | "screenshot" | "tool";
-export type ContactRole = "broker" | "owner" | "property_manager" | "leasing_office" | "unknown";
+export type ContactRole = "broker_agent" | "owner" | "property_manager" | "leasing_office" | "unknown";
 
 export interface RankedFactor {
   title: string;

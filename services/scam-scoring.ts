@@ -115,6 +115,7 @@ export async function scoreScamRisk(input: {
   borough?: string;
   neighborhood?: string;
   rent?: number;
+  contactRole?: string;
   messageText?: string;
   screenshotText?: string;
   rankedFactors: RankedFactor[];
@@ -122,7 +123,9 @@ export async function scoreScamRisk(input: {
 }) {
   const fallbackNextSteps = [
     "Request a verified tour before sending any money.",
-    "Verify the broker or landlord identity independently.",
+    input.contactRole === "broker_agent"
+      ? "Verify the broker or agent identity independently."
+      : "Verify the listing contact identity independently.",
     "Confirm address, lease terms, and payment method through trusted sources.",
   ];
 

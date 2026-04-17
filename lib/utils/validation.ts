@@ -23,7 +23,7 @@ export const analyzeInputSchema = z
       .union([z.number().nonnegative(), z.nan()])
       .optional()
       .transform((value) => (Number.isNaN(value) ? undefined : value)),
-    contactRole: z.enum(["broker", "owner", "property_manager", "leasing_office", "unknown"]).optional(),
+    contactRole: z.enum(["broker_agent", "owner", "property_manager", "leasing_office", "unknown"]).optional(),
     contactName: z.string().trim().optional(),
     contactCompany: z.string().trim().optional(),
     contactEmail: z.string().trim().email("Contact email must be a valid email address.").optional().or(z.literal("")),

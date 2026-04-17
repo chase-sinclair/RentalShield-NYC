@@ -65,6 +65,7 @@ export function buildRiskScoringPrompt(input: {
   borough?: string;
   neighborhood?: string;
   rent?: number;
+  contactRole?: string;
   messageText?: string;
   screenshotText?: string;
   rankedFactors: RankedFactor[];
@@ -86,6 +87,8 @@ Rules:
 - Do not introduce keys like "factor" or "evidence"; use the exact keys requested above.
 - Keep recommendedNextSteps to 3 to 5 concise actions.
 - Do not treat ordinary showing windows, standard application requirements, or routine lease terms as suspicious unless they are paired with payment pressure, identity inconsistencies, or refusal-to-show behavior.
+- Refer to a broker only when contactRole is explicitly broker or broker/agent. Otherwise use broader contact or listing-contact language.
+- If the only material concern is modest rent underpricing and the communication is otherwise routine, keep the result in low risk territory.
 - Do not include markdown fences or commentary.
 
 Use these facts:
@@ -93,6 +96,7 @@ Use these facts:
 - borough: ${input.borough ?? "Unavailable"}
 - neighborhood: ${input.neighborhood ?? "Unavailable"}
 - rent: ${input.rent ?? "Unavailable"}
+- contactRole: ${input.contactRole ?? "Unavailable"}
 - messageText: ${input.messageText ?? "Unavailable"}
 - screenshotText: ${input.screenshotText ?? "Unavailable"}
 - unavailableChecks: ${input.unavailableChecks.join(", ") || "none"}

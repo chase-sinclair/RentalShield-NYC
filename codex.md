@@ -760,3 +760,18 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Updated orchestration and result assembly so extracted facts and verified facts show contact-oriented details rather than implying every contact is a broker.
 - Kept the broker-specific risk factor from applying by default to owners, managers, leasing offices, or unknown contacts with incomplete evidence, which should reduce false positives on legitimate non-broker rental flows.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the role-aware contact identity update. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.
+
+### Post-Phase Follow-Up - Contact Role QA Notes
+- Regression test with the clean East Village StreetEasy sample and `Contact role = Unknown` still produced an overly aggressive result (`38`, medium-leaning feel) because the pipeline continued to score a normal showing window (`scheduled showings 5-7 PM only`) as a risk factor.
+- In that same `Unknown` contact test, some copy still read too broker-specific for an unknown role, including the summary/notes language and next-step suggestions that referenced broker credential verification more strongly than the submission justified.
+- Test with the same clean East Village sample and `Contact role = Broker`, `Contact name = Emmanual`, produced a lower and more reasonable score (`26`, low risk) with only the rent-context factor remaining, but the assessment still exposed fallback/provider wording (`broker verification tool used fallback provider behavior`) because the current broker lookup returned `404`.
+- The `Broker + Emmanual` test suggests the role-aware flow is working directionally, but the current broker lookup fallback path still influences confidence framing and assessment language more than it should for a low-risk result.
+- Next refinement targets: fully suppress ordinary showing-window factors for clean messages, replace remaining broker-specific copy when role is `unknown`, and soften low-risk confidence/assessment messaging when the only broker issue is provider unavailability rather than contradictory identity evidence.
+
+### Post-Phase Follow-Up - Three-Test Calibration Pass
+- Broadened the contact role from `Broker` to `Broker / agent` so licensed salespeople and similar rental contacts fit the form more naturally.
+- Tightened factor assembly so only genuinely suspicious showing constraints are allowed to become scored risk factors; ordinary scheduling windows should remain informational rather than risk-bearing.
+- Tuned rent comparison output into bands (`slightly`, `somewhat`, `materially` below range) so modest underpricing can contribute a smaller low-severity factor instead of always pushing toward a stronger score.
+- Updated Bedrock risk-scoring prompt context to use broker-specific language only when the contact role is explicitly `broker / agent`, and to keep modest rent-only concerns in low-risk territory when the rest of the communication is routine.
+- Added a stronger low-risk confidence framing when multiple submitted identity details are present and no degraded checks remain, reflecting the healthier third test that included name, company, phone, and license data.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the calibration pass. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.

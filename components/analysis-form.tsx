@@ -20,7 +20,7 @@ interface AnalysisFormProps {
 
 export function AnalysisForm({ compact = false }: AnalysisFormProps) {
   const contactRoleOptions: { value: ContactRole; label: string }[] = [
-    { value: "broker", label: "Broker" },
+    { value: "broker_agent", label: "Broker / agent" },
     { value: "owner", label: "Owner / landlord" },
     { value: "property_manager", label: "Property manager" },
     { value: "leasing_office", label: "Leasing office" },

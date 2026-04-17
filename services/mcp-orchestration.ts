@@ -18,8 +18,8 @@ function uniqueList(values: string[]) {
 
 function formatContactRole(role?: ContactRole) {
   switch (role) {
-    case "broker":
-      return "Broker";
+    case "broker_agent":
+      return "Broker / agent";
     case "owner":
       return "Owner / landlord";
     case "property_manager":
@@ -31,6 +31,30 @@ function formatContactRole(role?: ContactRole) {
     default:
       return undefined;
   }
+}
+
+function hasStrongIdentityContext(input: {
+  contactName?: string;
+  company?: string;
+  email?: string;
+  phone?: string;
+  licenseNumber?: string;
+}) {
+  const signals = [input.contactName, input.company, input.email, input.phone, input.licenseNumber].filter(Boolean).length;
+  return signals >= 3;
+}
+
+function isSuspiciousShowingDetail(detail: string) {
+  return [
+    /can'?t show/i,
+    /unable to show/i,
+    /before viewing/i,
+    /deposit/i,
+    /refuses? in-person/i,
+    /out of town/i,
+    /no access/i,
+    /without touring/i,
+  ].some((pattern) => pattern.test(detail));
 }
 
 function isSpecificNeighborhood(neighborhood?: string, borough?: string) {
@@ -143,7 +167,7 @@ function buildRecommendedNextSteps(input: {
     return uniqueList([
       "Proceed with the showing and normal rental process if the apartment matches the listing in person.",
       input.contactMissing
-        ? input.role === "broker"
+        ? input.role === "broker_agent"
           ? "Ask for the broker's full name, brokerage, and license details before applying."
           : "Ask for the contact's full name, company, and direct contact details before applying."
         : "Keep the listing link, fee disclosures, and lease paperwork together as you move forward.",
@@ -235,6 +259,13 @@ export async function runAnalysisOrchestration(
   const contactEmail = input.contactEmail;
   const contactPhone = input.contactPhone;
   const contactLicenseNumber = input.contactLicenseNumber;
+  const strongIdentityContext = hasStrongIdentityContext({
+    contactName,
+    company: contactCompany,
+    email: contactEmail,
+    phone: contactPhone,
+    licenseNumber: contactLicenseNumber,
+  });
 
   const addressVerification = await verifyAddress(parsedListing.address);
   trace.push(
@@ -284,38 +315,53 @@ export async function runAnalysisOrchestration(
       ? ["Quoted rent appears meaningfully below neighborhood context"]
       : []),
     ...messageSignals.urgencySignals,
-    ...messageSignals.tourLimitations,
+    ...messageSignals.tourLimitations.filter(isSuspiciousShowingDetail),
     ...(uploads.length ? ["Screenshot evidence contains rental scam review signals"] : []),
-    ...(contactRole === "broker" && brokerVerification.shouldPenalize
+    ...(contactRole === "broker_agent" && brokerVerification.shouldPenalize
       ? ["Broker identity could not be confidently verified"]
       : []),
-  ]).map((title, index) => ({
-    title,
-    severity:
-      index === 0 || title.toLowerCase().includes("below") || title.toLowerCase().includes("deposit")
-        ? "high"
-        : title.toLowerCase().includes("verified")
-          ? "medium"
-          : "medium",
-    contribution:
-      title.toLowerCase().includes("below")
-        ? 26
-        : title.toLowerCase().includes("deposit")
-          ? 18
-          : title.toLowerCase().includes("verified")
-            ? 14
-            : 12,
-    explanation:
-      title === "Quoted rent appears meaningfully below neighborhood context"
-        ? "The quoted rent is below the current comparison range for the normalized address."
-        : `${title} was detected from the current evidence and contributes to the overall scam estimate.`,
-    evidenceSource:
-      title.toLowerCase().includes("screenshot")
-        ? "screenshot"
-        : title.toLowerCase().includes("below") || title.toLowerCase().includes("verified")
-          ? "tool"
-          : "message",
-  })) as AnalysisResult["rankedFactors"];
+  ])
+    .map((title, index) => {
+      const isRentFactor = title === "Quoted rent appears meaningfully below neighborhood context";
+      const rentSeverity = rentContext.status === "completed" ? rentContext.severity : "none";
+      const rentContribution = rentContext.status === "completed" ? rentContext.contribution : 0;
+
+      return {
+        title,
+        severity:
+          isRentFactor
+            ? rentSeverity === "none"
+              ? "low"
+              : rentSeverity
+            : index === 0 || title.toLowerCase().includes("deposit")
+              ? "high"
+              : title.toLowerCase().includes("verified")
+                ? "medium"
+                : "medium",
+        contribution:
+          isRentFactor
+            ? rentContribution
+            : title.toLowerCase().includes("deposit")
+              ? 18
+              : title.toLowerCase().includes("verified")
+                ? 14
+                : 12,
+        explanation:
+          isRentFactor
+            ? rentSeverity === "high"
+              ? "The quoted rent is materially below the current comparison range for the normalized address."
+              : rentSeverity === "medium"
+                ? "The quoted rent is somewhat below the current comparison range for the normalized address."
+                : "The quoted rent sits slightly below the current comparison range for the normalized address."
+            : `${title} was detected from the current evidence and contributes to the overall scam estimate.`,
+        evidenceSource:
+          title.toLowerCase().includes("screenshot")
+            ? "screenshot"
+            : title.toLowerCase().includes("below") || title.toLowerCase().includes("verified")
+              ? "tool"
+              : "message",
+      };
+    }) as AnalysisResult["rankedFactors"];
 
   const unavailableChecks = trace
     .filter((entry) => {
@@ -336,6 +382,7 @@ export async function runAnalysisOrchestration(
     borough: addressVerification.borough,
     neighborhood: resolvedNeighborhood.value,
     rent: parsedListing.extractedRent,
+    contactRole,
     messageText: input.messageText,
     screenshotText: screenshotExtraction.text,
     rankedFactors,
@@ -415,7 +462,10 @@ export async function runAnalysisOrchestration(
       },
       normalizedAddress: addressVerification.normalizedAddress ?? mockAnalysisResult.normalizedAddress,
       summary: riskSummary.summary,
-      confidenceNote,
+      confidenceNote:
+        strongIdentityContext && !degradedChecks.length && riskSummary.label === "low"
+          ? "This estimate includes live checks plus multiple submitted identity details, which improves practical follow-up confidence while still not replacing independent verification."
+          : confidenceNote,
       systemNotes,
       rankedFactors: riskSummary.rankedFactors,
       recommendedNextSteps: buildRecommendedNextSteps({
@@ -442,7 +492,7 @@ export async function runAnalysisOrchestration(
       modelIdUsed: riskSummary.modelIdUsed,
       unverifiedOrMissing: uniqueList([
         !brokerVerification.matched
-          ? contactRole === "broker"
+          ? contactRole === "broker_agent"
             ? "Broker identity could not be independently confirmed."
             : "Contact identity could not be independently confirmed from the submitted details."
           : "",
