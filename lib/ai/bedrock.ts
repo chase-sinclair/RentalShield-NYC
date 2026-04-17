@@ -4,6 +4,13 @@ import { serverEnv } from "@/lib/config/env";
 import type { StagedUploadAsset } from "@/types";
 
 let client: BedrockRuntimeClient | null = null;
+const BEDROCK_MAX_ATTEMPTS = 6;
+const BEDROCK_RETRYABLE_ERRORS = new Set([
+  "ThrottlingException",
+  "TooManyRequestsException",
+  "ServiceUnavailableException",
+  "ModelTimeoutException",
+]);
 
 export function getBedrockClient() {
   if (!client) {
@@ -13,6 +20,17 @@ export function getBedrockClient() {
   }
 
   return client;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getRetryDelayMs(attempt: number) {
+  const baseDelay = 1000 * 2 ** attempt;
+  const jitter = Math.floor(Math.random() * 250);
+
+  return Math.min(baseDelay, 5000) + jitter;
 }
 
 export async function invokeBedrockModel(input: {
@@ -29,7 +47,26 @@ export async function invokeBedrockModel(input: {
     body: JSON.stringify(input.body),
   });
 
-  return getBedrockClient().send(command);
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < BEDROCK_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await getBedrockClient().send(command);
+    } catch (error) {
+      lastError = error;
+      const errorName = error instanceof Error ? error.name : "";
+      const shouldRetry = BEDROCK_RETRYABLE_ERRORS.has(errorName);
+
+      if (!shouldRetry || attempt === BEDROCK_MAX_ATTEMPTS - 1) {
+        throw error;
+      }
+
+      const delayMs = getRetryDelayMs(attempt);
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Bedrock invocation failed.");
 }
 
 function decodeBody(body: Uint8Array | undefined) {

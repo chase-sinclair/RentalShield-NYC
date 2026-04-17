@@ -724,3 +724,12 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Verified the RentCast path improved after API-key activation, while broker verification still falls back when not enough broker info is supplied or the provider cannot verify a match.
 - Remaining open issue: live end-to-end risk scoring still falls back to `deterministic-fallback` inside the app runtime, even though isolated direct Bedrock scoring probes return valid structured JSON for the same prompt shape and evidence bundle. This is the main next-session debugging target.
 - Last validated state: `npm run lint`, `npm run typecheck`, and `npm run build` all passed after the Sonnet 4 / multimodal upload changes.
+
+### Post-Phase Follow-Up - Bedrock Scoring Runtime Fixed
+- Root cause for the remaining scoring fallback was Bedrock throttling during the app's three-call sequence (screenshot multimodal extraction, message extraction, then scoring), not a prompt/schema mismatch.
+- Confirmed this by reproducing the exact sequential Bedrock flow in one process and observing `ThrottlingException: Too many requests, please wait before trying again.` on the scoring step.
+- Added retry/backoff handling at the shared Bedrock invocation layer for retryable runtime errors like throttling, service unavailability, and model timeouts.
+- Increased retry budget and switched to longer capped exponential backoff with jitter so the third Bedrock call can clear instead of falling back immediately.
+- Verified on a fresh server instance that end-to-end analysis now uses Sonnet 4 for screenshot extraction, message extraction, and final risk scoring with `modelIdUsed: global.anthropic.claude-sonnet-4-20250514-v1:0`.
+- Verified the live results payload now reports `All currently wired checks completed without known fallback behavior.` when broker verification is the only skipped tool due to missing broker details.
+- Ran `npm run lint`, `npm run typecheck`, and `npm run build` after the scoring-runtime fix. Validation passed cleanly.
