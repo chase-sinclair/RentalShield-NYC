@@ -53,7 +53,7 @@ export function ExtractedFactsCard({ facts }: ExtractedFactsCardProps) {
 
           <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              Tour Limitations
+              Showing Details
             </p>
             <div className="mt-3 space-y-2">
               {facts.tourLimitations.length ? (
@@ -63,7 +63,7 @@ export function ExtractedFactsCard({ facts }: ExtractedFactsCardProps) {
                   </p>
                 ))
               ) : (
-                <p className="text-sm leading-6 text-muted-foreground">No tour limitations extracted.</p>
+                <p className="text-sm leading-6 text-muted-foreground">No unusual showing constraints extracted.</p>
               )}
             </div>
           </div>

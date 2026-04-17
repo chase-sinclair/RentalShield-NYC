@@ -16,17 +16,60 @@ function uniqueList(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function isSpecificNeighborhood(neighborhood?: string, borough?: string) {
+  if (!neighborhood) {
+    return false;
+  }
+
+  const normalized = neighborhood.trim().toLowerCase();
+  return Boolean(normalized) && normalized !== "manhattan" && normalized !== borough?.trim().toLowerCase();
+}
+
+function resolveNeighborhood(input: {
+  verifiedNeighborhood?: string;
+  borough?: string;
+  parsedNeighborhood?: string;
+}) {
+  if (isSpecificNeighborhood(input.verifiedNeighborhood, input.borough)) {
+    return {
+      value: input.verifiedNeighborhood,
+      source: "Geocoding",
+    };
+  }
+
+  if (isSpecificNeighborhood(input.parsedNeighborhood, input.borough)) {
+    return {
+      value: input.parsedNeighborhood,
+      source: "Listing parser + extraction",
+    };
+  }
+
+  return {
+    value: input.verifiedNeighborhood ?? input.parsedNeighborhood,
+    source: input.verifiedNeighborhood ? "Geocoding" : "Listing parser + extraction",
+  };
+}
+
 function buildConfidenceNote(input: {
   unavailableChecks: string[];
+  degradedChecks: string[];
   uploads: UploadAsset[];
   modelIdUsed: string;
 }) {
-  if (input.unavailableChecks.length === 0 && input.modelIdUsed !== "deterministic-fallback") {
+  if (
+    input.unavailableChecks.length === 0 &&
+    input.degradedChecks.length === 0 &&
+    input.modelIdUsed !== "deterministic-fallback"
+  ) {
     return "This estimate includes live tool checks and model reasoning, but it should still be treated as decision support rather than proof.";
   }
 
+  if (input.degradedChecks.length > 0) {
+    return "This estimate is directionally useful, but some checks ran with fallback logic or partial provider coverage, so independent verification is still important.";
+  }
+
   if (input.unavailableChecks.length > 0) {
-    return "This estimate is directionally useful, but some checks were unavailable or partially mocked, so independent verification is still important.";
+    return "This estimate used live analysis, but some verification steps could not run from the submitted evidence or available provider coverage.";
   }
 
   if (input.uploads.length > 0) {
@@ -40,6 +83,7 @@ function buildVerifiedFacts(input: {
   normalizedAddress?: string;
   borough?: string;
   neighborhood?: string;
+  neighborhoodSource?: string;
   extractedRent?: number;
   brokerName?: string;
   company?: string;
@@ -48,7 +92,7 @@ function buildVerifiedFacts(input: {
   return uniqueList([
     input.normalizedAddress ? `Address|${input.normalizedAddress}|Address verification tool` : "",
     input.borough ? `Borough|${input.borough}|Geocoding` : "",
-    input.neighborhood ? `Neighborhood|${input.neighborhood}|Geocoding` : "",
+    input.neighborhood ? `Neighborhood|${input.neighborhood}|${input.neighborhoodSource ?? "Geocoding"}` : "",
     typeof input.extractedRent === "number"
       ? `Claimed rent|$${input.extractedRent.toLocaleString()}|Listing parser + extraction`
       : "",
@@ -61,6 +105,25 @@ function buildVerifiedFacts(input: {
     const [label, value, source] = item.split("|");
     return { label, value, source };
   });
+}
+
+function buildRecommendedNextSteps(input: {
+  label: AnalysisResult["label"];
+  score: number;
+  currentSteps: string[];
+  brokerMissing: boolean;
+}) {
+  if (input.label === "low" && input.score <= 25) {
+    return uniqueList([
+      "Proceed with the showing and normal rental process if the apartment matches the listing in person.",
+      input.brokerMissing
+        ? "Ask for the broker or management company's full name and license details before applying."
+        : "Keep the listing link, fee disclosures, and lease paperwork together as you move forward.",
+      "Hold off on sending deposits or fees until the showing, lease terms, and payment instructions all line up in writing.",
+    ]);
+  }
+
+  return input.currentSteps;
 }
 
 function buildDegradedChecks(input: {
@@ -168,6 +231,12 @@ export async function runAnalysisOrchestration(
     ),
   );
 
+  const resolvedNeighborhood = resolveNeighborhood({
+    verifiedNeighborhood: addressVerification.neighborhood,
+    borough: addressVerification.borough,
+    parsedNeighborhood: parsedListing.neighborhood,
+  });
+
   const rankedFactors = uniqueList([
     ...(rentContext.status === "completed" && rentContext.belowRange
       ? ["Quoted rent appears meaningfully below neighborhood context"]
@@ -223,7 +292,7 @@ export async function runAnalysisOrchestration(
   const riskSummary = await scoreScamRisk({
     normalizedAddress: addressVerification.normalizedAddress,
     borough: addressVerification.borough,
-    neighborhood: addressVerification.neighborhood,
+    neighborhood: resolvedNeighborhood.value,
     rent: parsedListing.extractedRent,
     messageText: input.messageText,
     screenshotText: screenshotExtraction.text,
@@ -247,18 +316,22 @@ export async function runAnalysisOrchestration(
       : ["This MVP is optimized for Manhattan listings, so non-Manhattan property checks may be less reliable."]),
     ...(uploads.length ? ["Screenshot evidence was included in the analysis workflow."] : []),
     ...(degradedChecks.length
-      ? ["Some checks completed with fallback logic rather than fully live provider/model output."]
+      ? ["Some checks completed with fallback logic rather than fully live provider or model output."]
+      : unavailableChecks.length
+        ? ["Some verification steps could not run because required evidence was missing or provider coverage was limited."]
       : ["All currently wired checks completed without known fallback behavior."]),
   ]);
   const confidenceNote = buildConfidenceNote({
     unavailableChecks,
+    degradedChecks,
     uploads,
     modelIdUsed: riskSummary.modelIdUsed,
   });
   const verifiedFacts = buildVerifiedFacts({
     normalizedAddress: addressVerification.normalizedAddress ?? undefined,
     borough: addressVerification.borough ?? undefined,
-    neighborhood: addressVerification.neighborhood ?? undefined,
+    neighborhood: resolvedNeighborhood.value ?? undefined,
+    neighborhoodSource: resolvedNeighborhood.source,
     extractedRent: parsedListing.extractedRent,
     brokerName: messageSignals.brokerName,
     company: messageSignals.company,
@@ -282,7 +355,7 @@ export async function runAnalysisOrchestration(
         ...mockAnalysisResult.extractedFacts,
         address: parsedListing.address,
         borough: addressVerification.borough ?? mockAnalysisResult.borough,
-        neighborhood: addressVerification.neighborhood ?? mockAnalysisResult.neighborhood,
+        neighborhood: resolvedNeighborhood.value ?? mockAnalysisResult.neighborhood,
         claimedRent: parsedListing.extractedRent,
         brokerName: messageSignals.brokerName,
         company: messageSignals.company,
@@ -295,7 +368,12 @@ export async function runAnalysisOrchestration(
       confidenceNote,
       systemNotes,
       rankedFactors: riskSummary.rankedFactors,
-      recommendedNextSteps: riskSummary.recommendedNextSteps,
+      recommendedNextSteps: buildRecommendedNextSteps({
+        label: riskSummary.label,
+        score: riskSummary.score,
+        currentSteps: riskSummary.recommendedNextSteps,
+        brokerMissing: !brokerVerification.matched,
+      }),
       verifiedFacts,
       checksRun: trace.filter((entry) => entry.status === "completed").map((entry) => entry.toolName),
       unavailableChecks: uniqueList([...unavailableChecks, ...degradedChecks]),
@@ -304,7 +382,7 @@ export async function runAnalysisOrchestration(
       score: riskSummary.score,
       label: riskSummary.label,
       borough: addressVerification.borough ?? mockAnalysisResult.borough,
-      neighborhood: addressVerification.neighborhood ?? mockAnalysisResult.neighborhood,
+      neighborhood: resolvedNeighborhood.value ?? mockAnalysisResult.neighborhood,
       extractedRent: parsedListing.extractedRent,
       extractedBrokerName: messageSignals.brokerName,
       extractedCompany: messageSignals.company,

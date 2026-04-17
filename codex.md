@@ -743,3 +743,12 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Re-tested the user's StreetEasy case for `432 East 11th Street #1W` with a clean, professional leasing email and confirmed the result now normalizes to the correct East Village address and returns a low-risk score (`15`, label `low`) instead of a false high-risk mismatch against the old mock West 73rd Street address.
 - Remaining caveat: the neighborhood label can still resolve generically as `Manhattan` instead of a more specific sub-neighborhood like `East Village`, depending on geocoding/provider output. This is a refinement item, not the false-positive blocker.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the clean-listing fix. Validation passed cleanly.
+
+### Post-Phase Follow-Up - Results UX And Neighborhood Specificity Refinements
+- Added neighborhood extraction heuristics for Manhattan sub-neighborhood names found in submitted message text, then taught orchestration to prefer the more specific neighborhood when geocoding only returns a generic borough-level label like `Manhattan`.
+- Renamed the extracted-facts box from `Tour Limitations` to `Showing Details` so ordinary showing logistics are not framed as inherently suspicious, and expanded benign-message filtering so specific showing windows are less likely to surface as scam signals.
+- Fixed the confidence/assessment inconsistency by distinguishing between truly degraded checks and verification steps that simply could not run from the submitted evidence, such as missing broker details.
+- Softened low-risk follow-up guidance so low-score results now encourage users to proceed with normal rental steps while still completing routine verification checks before sending money.
+- Added an integrated semicircle risk scale to the score card so the numeric risk score has an at-a-glance visual scale for low, medium, and high concern bands.
+- Updated assessment check labels to read more naturally in the UI instead of exposing raw internal tool IDs where possible.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after these refinements. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.

@@ -32,7 +32,11 @@ function toConfidence(value: unknown, fallback = 0.5) {
 function sanitizeMessageSignals(signals: ExtractionSignalSet): ExtractionSignalSet {
   const benignPatterns = [
     /specific time window/i,
+    /specific\s+\d+-hour window/i,
     /showings? only this week/i,
+    /showings? (?:this week|during the week)/i,
+    /reasonable showing schedule/i,
+    /between\s+\d{1,2}:\d{2}\s*(?:am|pm)?\s+and\s+\d{1,2}:\d{2}\s*(?:am|pm)?/i,
     /between\s+\d/i,
     /standard application/i,
     /government-issued id/i,

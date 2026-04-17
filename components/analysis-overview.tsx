@@ -9,6 +9,19 @@ interface AnalysisOverviewProps {
   checksRun: string[];
 }
 
+const CHECK_LABELS: Record<string, string> = {
+  broker_verification_tool: "Broker verification could not run from the submitted details.",
+  ocr_or_multimodal_extraction_tool: "Screenshot extraction had limited or unavailable coverage.",
+  message_extraction_tool: "Message extraction had limited or unavailable coverage.",
+  risk_scoring_tool: "Risk scoring had limited or unavailable coverage.",
+  address_verification_tool: "Address verification had limited or unavailable coverage.",
+  rent_comparison_tool: "Rent comparison had limited or unavailable coverage.",
+};
+
+function formatCheckLabel(check: string) {
+  return CHECK_LABELS[check] ?? check.replaceAll("_", " ");
+}
+
 export function AnalysisOverview({
   scopeNotes,
   unavailableChecks,
@@ -42,13 +55,13 @@ export function AnalysisOverview({
         <div className="rounded-[1.4rem] border border-border bg-secondary/35 p-4">
           <div className="flex items-center gap-3">
             <ShieldAlert className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold text-foreground">Limited or degraded checks</h3>
+            <h3 className="font-semibold text-foreground">Unavailable or limited checks</h3>
           </div>
           <div className="mt-4 space-y-3">
             {unavailableChecks.length ? (
               unavailableChecks.map((check) => (
                 <p className="text-sm leading-6 text-muted-foreground" key={check}>
-                  {check}
+                  {formatCheckLabel(check)}
                 </p>
               ))
             ) : (

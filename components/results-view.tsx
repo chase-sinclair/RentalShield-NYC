@@ -32,6 +32,7 @@ export function ResultsView({ result }: ResultsViewProps) {
       <FactorExplanations factors={result.rankedFactors} />
       <VerifiedFactsCard facts={result.verifiedFacts} />
       <NextStepsCard
+        label={result.label}
         steps={result.recommendedNextSteps}
         unverifiedOrMissing={result.unverifiedOrMissing}
       />

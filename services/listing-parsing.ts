@@ -3,6 +3,49 @@ import type { AnalysisInput } from "@/types";
 const ADDRESS_PATTERN =
   /\b\d{1,5}\s+(?:[NSEW]\b\.?\s+|North\s+|South\s+|East\s+|West\s+)?[A-Za-z0-9.'-]+(?:\s+[A-Za-z0-9.'-]+){0,4}\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Place|Pl|Lane|Ln|Drive|Dr|Court|Ct|Way)\b(?:\s*#?\w+)?/i;
 
+const MANHATTAN_NEIGHBORHOODS = [
+  "Battery Park City",
+  "Carnegie Hill",
+  "Central Harlem",
+  "Chelsea",
+  "Chinatown",
+  "East Harlem",
+  "East Village",
+  "Financial District",
+  "Flatiron",
+  "Gramercy",
+  "Greenwich Village",
+  "Harlem",
+  "Hell's Kitchen",
+  "Hudson Square",
+  "Hudson Yards",
+  "Inwood",
+  "Kips Bay",
+  "Lenox Hill",
+  "Lincoln Square",
+  "Little Italy",
+  "Lower East Side",
+  "Midtown East",
+  "Midtown West",
+  "Morningside Heights",
+  "Murray Hill",
+  "NoHo",
+  "NoMad",
+  "Nolita",
+  "Roosevelt Island",
+  "SoHo",
+  "Stuyvesant Town",
+  "Sutton Place",
+  "Tribeca",
+  "Two Bridges",
+  "Union Square",
+  "Upper East Side",
+  "Upper West Side",
+  "Washington Heights",
+  "West Village",
+  "Yorkville",
+];
+
 function titleCaseWord(word: string) {
   if (!word) {
     return word;
@@ -119,6 +162,18 @@ function extractRentFromMessage(messageText?: string) {
   return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function extractNeighborhoodFromMessage(messageText?: string) {
+  if (!messageText) {
+    return undefined;
+  }
+
+  const match = MANHATTAN_NEIGHBORHOODS.find((neighborhood) =>
+    new RegExp(`\\b${neighborhood.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(messageText),
+  );
+
+  return match;
+}
+
 function buildListingTitle(address?: string) {
   return address ? `Listing at ${address}` : "Rental listing submission";
 }
@@ -128,17 +183,20 @@ export async function parseListing(
 ) {
   const messageAddress = extractAddressFromMessage(input.messageText);
   const urlAddress = extractStreetEasyAddress(input.listingUrl);
+  const neighborhood = extractNeighborhoodFromMessage(input.messageText);
   const address = messageAddress ?? urlAddress;
 
   const notes = [
     messageAddress ? "Parsed address from submitted message text." : "",
     !messageAddress && urlAddress ? "Parsed address from listing URL structure." : "",
+    neighborhood ? `Parsed neighborhood context from submitted message text (${neighborhood}).` : "",
     !messageAddress && !urlAddress ? "Could not parse a concrete address from the URL or message text." : "",
   ].filter(Boolean);
 
   return {
     title: buildListingTitle(address),
     address,
+    neighborhood,
     extractedRent: input.manualRent ?? extractRentFromMessage(input.messageText),
     sourceUrl: input.listingUrl,
     notes,

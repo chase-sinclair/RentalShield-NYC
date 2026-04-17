@@ -18,6 +18,11 @@ const labelStyles: Record<ScamRiskLabel, string> = {
   high: "bg-red-100 text-red-900",
 };
 
+function getGaugeRotation(score: number) {
+  const clamped = Math.max(0, Math.min(100, score));
+  return -90 + clamped * 1.8;
+}
+
 export function ScoreDisplay({
   score,
   label,
@@ -27,16 +32,35 @@ export function ScoreDisplay({
   modelIdUsed,
 }: ScoreDisplayProps) {
   const usedFallback = modelIdUsed.includes("fallback");
+  const gaugeRotation = getGaugeRotation(score);
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <div className="bg-primary px-6 py-8 text-primary-foreground">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-foreground/70">
             Scam Risk Score
           </p>
           <p className="mt-3 text-6xl font-semibold leading-none">{score}</p>
           <p className="mt-4 text-sm text-primary-foreground/80">{formatPercent(score)} estimated concern level</p>
+          <div className="mt-8">
+            <div className="relative mx-auto w-full max-w-[220px]">
+              <div className="relative h-[118px] overflow-hidden">
+                <div className="absolute inset-x-0 top-0 mx-auto h-[220px] w-[220px] rounded-full bg-[conic-gradient(from_180deg,_#22c55e_0deg,_#22c55e_60deg,_#facc15_60deg,_#facc15_120deg,_#ef4444_120deg,_#ef4444_180deg,_transparent_180deg)]" />
+                <div className="absolute inset-x-0 top-[22px] mx-auto h-[176px] w-[176px] rounded-full bg-primary" />
+                <div
+                  className="absolute left-1/2 top-[106px] h-[3px] w-[74px] origin-left rounded-full bg-white shadow-[0_0_0_3px_rgba(15,23,42,0.12)]"
+                  style={{ transform: `rotate(${gaugeRotation}deg)` }}
+                />
+                <div className="absolute left-1/2 top-[106px] h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-white" />
+              </div>
+              <div className="mt-1 flex items-center justify-between px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/72">
+                <span>Low</span>
+                <span>Medium</span>
+                <span>High</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="px-6 py-8">
           <span className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${labelStyles[label]}`}>

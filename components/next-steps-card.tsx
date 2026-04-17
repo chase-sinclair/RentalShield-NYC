@@ -1,18 +1,24 @@
 import { Shield, SearchCheck } from "lucide-react";
 
 import { SectionCard } from "@/components/section-card";
+import type { ScamRiskLabel } from "@/types";
 
 interface NextStepsCardProps {
   steps: string[];
   unverifiedOrMissing: string[];
+  label: ScamRiskLabel;
 }
 
-export function NextStepsCard({ steps, unverifiedOrMissing }: NextStepsCardProps) {
+export function NextStepsCard({ steps, unverifiedOrMissing, label }: NextStepsCardProps) {
   return (
     <SectionCard
       eyebrow="Safety"
-      title="Recommended next steps"
-      description="The MVP should guide users toward safer verification behavior instead of making overconfident claims."
+      title={label === "low" ? "Suggested next steps" : "Recommended next steps"}
+      description={
+        label === "low"
+          ? "This result looks relatively healthy, but a few routine checks are still worth completing before you move forward."
+          : "The MVP should guide users toward safer verification behavior instead of making overconfident claims."
+      }
     >
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-[1.4rem] border border-border bg-secondary/35 p-4">
