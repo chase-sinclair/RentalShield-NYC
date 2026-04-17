@@ -15,8 +15,6 @@ export function ExtractedFactsCard({ facts }: ExtractedFactsCardProps) {
     ["Contact role", facts.contactRole ?? "Unavailable"],
     ["Contact name", facts.brokerName ?? "Unavailable"],
     ["Company", facts.company ?? "Unavailable"],
-    ["Contact email", facts.contactEmail ?? "Unavailable"],
-    ["Contact phone", facts.contactPhone ?? "Unavailable"],
     ["Payment method", facts.paymentMethod ?? "Unavailable"],
   ];
 

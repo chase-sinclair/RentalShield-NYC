@@ -33,10 +33,6 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
   const [manualRent, setManualRent] = useState("");
   const [contactRole, setContactRole] = useState<ContactRole | "">("");
   const [contactName, setContactName] = useState("");
-  const [contactCompany, setContactCompany] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  const [contactLicenseNumber, setContactLicenseNumber] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -122,10 +118,6 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
           manualRent: normalizedRent,
           contactRole: contactRole || undefined,
           contactName: contactName.trim() || undefined,
-          contactCompany: contactCompany.trim() || undefined,
-          contactEmail: contactEmail.trim() || undefined,
-          contactPhone: contactPhone.trim() || undefined,
-          contactLicenseNumber: contactLicenseNumber.trim() || undefined,
           screenshotAssets,
         }),
       });
@@ -232,7 +224,7 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
         <div className="space-y-1">
           <h3 className="text-sm font-semibold text-foreground">Optional contact identity details</h3>
           <p className="text-sm text-muted-foreground">
-            Use this if the rental contact shared their role, name, company, phone, email, or license number.
+            Use this if the rental contact shared their role and name.
           </p>
         </div>
 
@@ -271,62 +263,6 @@ export function AnalysisForm({ compact = false }: AnalysisFormProps) {
           </div>
         </div>
 
-        <div className={`grid gap-4 ${compact ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground" htmlFor="contact-company">
-              Company or management firm
-            </label>
-            <Input
-              disabled={submitting}
-              id="contact-company"
-              placeholder="ABC Realty"
-              value={contactCompany}
-              onChange={(event) => setContactCompany(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground" htmlFor="contact-license-number">
-              License number
-            </label>
-            <Input
-              disabled={submitting}
-              id="contact-license-number"
-              placeholder="If provided"
-              value={contactLicenseNumber}
-              onChange={(event) => setContactLicenseNumber(event.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className={`grid gap-4 ${compact ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground" htmlFor="contact-email">
-              Contact email
-            </label>
-            <Input
-              disabled={submitting}
-              id="contact-email"
-              placeholder="agent@realty.com"
-              type="email"
-              value={contactEmail}
-              onChange={(event) => setContactEmail(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground" htmlFor="contact-phone">
-              Contact phone
-            </label>
-            <Input
-              disabled={submitting}
-              id="contact-phone"
-              placeholder="(212) 555-0198"
-              value={contactPhone}
-              onChange={(event) => setContactPhone(event.target.value)}
-            />
-          </div>
-        </div>
       </div>
 
       <UploadDropzone

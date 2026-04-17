@@ -775,3 +775,11 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Updated Bedrock risk-scoring prompt context to use broker-specific language only when the contact role is explicitly `broker / agent`, and to keep modest rent-only concerns in low-risk territory when the rest of the communication is routine.
 - Added a stronger low-risk confidence framing when multiple submitted identity details are present and no degraded checks remain, reflecting the healthier third test that included name, company, phone, and license data.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the calibration pass. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.
+
+### Post-Phase Follow-Up - Name-Only Official Contact Lookup
+- Simplified the submission UX so the form now asks only for `Contact role` and `Contact name`, removing the extra company, email, phone, and license inputs that added friction to the MVP.
+- Reworked official contact verification around a single name-based NY lookup attempt: the pipeline now requires a full first-and-last name, does one official search, and stops there without secondary fallback sources.
+- Added explicit ambiguous-match handling so multiple official matches for the same name are treated as `unconfirmed from name alone` rather than incorrectly marked verified or failed.
+- Softened user-facing lookup failure language so provider errors no longer surface raw status details like `404` in the result; technical failures are logged server-side instead.
+- Kept broker/agent-specific scoring stricter only when the contact is explicitly tagged as `Broker / agent`, while unknown or non-broker roles remain neutral unless stronger contradictory evidence appears.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the name-only lookup change. Validation passed cleanly.

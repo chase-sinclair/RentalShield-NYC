@@ -12,10 +12,6 @@ export async function POST(request: Request) {
     manualRent?: number;
     contactRole?: "broker_agent" | "owner" | "property_manager" | "leasing_office" | "unknown";
     contactName?: string;
-    contactCompany?: string;
-    contactEmail?: string;
-    contactPhone?: string;
-    contactLicenseNumber?: string;
     screenshotAssets?: {
       id: string;
       name: string;

@@ -4,18 +4,26 @@ import type { ContactRole } from "@/types";
 interface VerifyContactIdentityInput {
   role?: ContactRole;
   name?: string;
-  company?: string;
-  email?: string;
-  phone?: string;
-  licenseNumber?: string;
 }
 
-function hasVerifiableIdentityDetails(input: VerifyContactIdentityInput) {
-  return Boolean(input.name || input.company || input.email || input.phone || input.licenseNumber);
-}
+function splitFullName(name?: string) {
+  if (!name) {
+    return null;
+  }
 
-function countSupportingIdentitySignals(input: VerifyContactIdentityInput) {
-  return [input.company, input.email, input.phone, input.licenseNumber].filter(Boolean).length;
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length < 2) {
+    return null;
+  }
+
+  return {
+    firstName: parts.slice(0, -1).join(" "),
+    lastName: parts.at(-1) ?? "",
+  };
 }
 
 function getRoleLabel(role?: ContactRole) {
@@ -38,29 +46,27 @@ function getRoleLabel(role?: ContactRole) {
 export async function verifyContactIdentity(input: VerifyContactIdentityInput) {
   const role = input.role ?? "unknown";
   const roleLabel = getRoleLabel(role);
-  const hasDetails = hasVerifiableIdentityDetails(input);
+  const hasName = Boolean(input.name?.trim());
 
-  if (!hasDetails) {
+  if (!hasName) {
     return {
       status: "skipped" as const,
       matched: false,
+      ambiguous: false,
       shouldPenalize: false,
-      notes: [`Not enough ${roleLabel} identity details were supplied to verify this contact.`],
+      notes: [`Not enough ${roleLabel} identity details were supplied to verify this contact by name.`],
     };
   }
 
-  if (role !== "broker_agent") {
-    const signalCount = countSupportingIdentitySignals(input);
-
+  const parsedName = splitFullName(input.name);
+  if (!parsedName) {
     return {
-      status: "completed" as const,
-      matched: signalCount >= 1,
+      status: "skipped" as const,
+      matched: false,
+      ambiguous: false,
       shouldPenalize: false,
-      confidence: signalCount >= 2 ? 0.7 : 0.55,
       notes: [
-        signalCount >= 2
-          ? `Submitted ${roleLabel} details include multiple identity signals that can support follow-up verification.`
-          : `Submitted ${roleLabel} details are partial, so identity is better treated as unconfirmed rather than suspicious.`,
+        "A full first and last name is needed for the official NY license name search.",
       ],
     };
   }
@@ -69,6 +75,7 @@ export async function verifyContactIdentity(input: VerifyContactIdentityInput) {
     return {
       status: "mock" as const,
       matched: false,
+      ambiguous: false,
       shouldPenalize: false,
       confidence: 0.34,
       notes: [
@@ -78,12 +85,20 @@ export async function verifyContactIdentity(input: VerifyContactIdentityInput) {
   }
 
   try {
-    const query = [input.licenseNumber, input.name, input.company].filter(Boolean).join(" ").trim();
-    const params = new URLSearchParams({
-      search: query,
+    const formData = new URLSearchParams({
+      firstName: parsedName.firstName,
+      lastName: parsedName.lastName,
+      searchBy: "INDIVIDUAL",
+      page: "searchByName",
+      maxRows: "5",
+      submit: "Search",
     });
-    const response = await fetch(`${serverEnv.nyLicenseLookupBaseUrl}?${params.toString()}`, {
-      method: "GET",
+    const response = await fetch(serverEnv.nyLicenseLookupBaseUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData.toString(),
       signal: AbortSignal.timeout(8000),
       next: { revalidate: 0 },
     });
@@ -94,31 +109,32 @@ export async function verifyContactIdentity(input: VerifyContactIdentityInput) {
 
     const html = await response.text();
     const normalizedHtml = html.toLowerCase();
-    const brokerMatch = input.name ? normalizedHtml.includes(input.name.toLowerCase()) : false;
-    const companyMatch = input.company ? normalizedHtml.includes(input.company.toLowerCase()) : false;
-    const licenseMatch = input.licenseNumber ? normalizedHtml.includes(input.licenseNumber.toLowerCase()) : false;
-    const matched = brokerMatch || companyMatch || licenseMatch;
+    const fullName = `${parsedName.firstName} ${parsedName.lastName}`.toLowerCase();
+    const matchCount = normalizedHtml.split(fullName).length - 1;
+    const matched = matchCount === 1;
+    const ambiguous = matchCount > 1;
 
     return {
       status: "completed" as const,
       matched,
-      shouldPenalize: !matched,
-      confidence: matched ? 0.78 : 0.44,
+      ambiguous,
+      shouldPenalize: role === "broker_agent" && !matched && !ambiguous,
+      confidence: matched ? 0.8 : ambiguous ? 0.46 : 0.4,
       notes: matched
-        ? ["A possible broker match was found in the current license lookup response."]
-        : ["No confident broker match was found in the current license lookup response."],
+        ? ["A single official name match was found in the current NY license lookup response."]
+        : ambiguous
+          ? ["Multiple official matches were found for this name, so identity could not be confirmed from name alone."]
+          : ["No official name match was found in the current NY license lookup response."],
     };
   } catch (error) {
+    console.error("Official name lookup failed:", error);
     return {
       status: "mock" as const,
       matched: false,
+      ambiguous: false,
       shouldPenalize: false,
       confidence: 0.34,
-      notes: [
-        error instanceof Error
-          ? `Broker verification fallback used: ${error.message}`
-          : "Broker verification fallback used because the live request failed.",
-      ],
+      notes: ["Official name lookup is currently unavailable, so identity could not be confirmed automatically."],
     };
   }
 }

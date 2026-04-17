@@ -39,7 +39,12 @@ function hasStrongIdentityContext(input: {
   email?: string;
   phone?: string;
   licenseNumber?: string;
+  matched?: boolean;
 }) {
+  if (input.matched) {
+    return true;
+  }
+
   const signals = [input.contactName, input.company, input.email, input.phone, input.licenseNumber].filter(Boolean).length;
   return signals >= 3;
 }
@@ -256,16 +261,6 @@ export async function runAnalysisOrchestration(
   const contactRole = input.contactRole ?? "unknown";
   const contactName = input.contactName ?? messageSignals.brokerName;
   const contactCompany = input.contactCompany ?? messageSignals.company;
-  const contactEmail = input.contactEmail;
-  const contactPhone = input.contactPhone;
-  const contactLicenseNumber = input.contactLicenseNumber;
-  const strongIdentityContext = hasStrongIdentityContext({
-    contactName,
-    company: contactCompany,
-    email: contactEmail,
-    phone: contactPhone,
-    licenseNumber: contactLicenseNumber,
-  });
 
   const addressVerification = await verifyAddress(parsedListing.address);
   trace.push(
@@ -282,10 +277,11 @@ export async function runAnalysisOrchestration(
   const brokerVerification = await verifyContactIdentity({
     role: contactRole,
     name: contactName,
+  });
+  const strongIdentityContext = hasStrongIdentityContext({
+    contactName,
     company: contactCompany,
-    email: contactEmail,
-    phone: contactPhone,
-    licenseNumber: contactLicenseNumber,
+    matched: brokerVerification.matched,
   });
   trace.push(
     createTraceEntry(
@@ -425,9 +421,6 @@ export async function runAnalysisOrchestration(
     brokerName: contactName,
     company: contactCompany,
     contactRole: formatContactRole(contactRole),
-    contactEmail,
-    contactPhone,
-    licenseNumber: contactLicenseNumber,
     uploads,
   });
   const systemNotes = buildSystemNotes({
@@ -453,9 +446,6 @@ export async function runAnalysisOrchestration(
         contactRole,
         brokerName: contactName,
         company: contactCompany,
-        contactEmail,
-        contactPhone,
-        licenseNumber: contactLicenseNumber,
         paymentMethod: messageSignals.paymentMethod,
         urgencySignals: messageSignals.urgencySignals,
         tourLimitations: messageSignals.tourLimitations,
@@ -492,8 +482,10 @@ export async function runAnalysisOrchestration(
       modelIdUsed: riskSummary.modelIdUsed,
       unverifiedOrMissing: uniqueList([
         !brokerVerification.matched
-          ? contactRole === "broker_agent"
-            ? "Broker identity could not be independently confirmed."
+          ? brokerVerification.ambiguous
+            ? "Multiple official matches were found for this name, so identity could not be confirmed from name alone."
+            : contactRole === "broker_agent"
+              ? "Broker or agent identity could not be independently confirmed."
             : "Contact identity could not be independently confirmed from the submitted details."
           : "",
         uploads.length && screenshotExtraction.modelIdUsed === "mock-fallback"

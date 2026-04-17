@@ -25,16 +25,8 @@ export const analyzeInputSchema = z
       .transform((value) => (Number.isNaN(value) ? undefined : value)),
     contactRole: z.enum(["broker_agent", "owner", "property_manager", "leasing_office", "unknown"]).optional(),
     contactName: z.string().trim().optional(),
-    contactCompany: z.string().trim().optional(),
-    contactEmail: z.string().trim().email("Contact email must be a valid email address.").optional().or(z.literal("")),
-    contactPhone: z.string().trim().optional(),
-    contactLicenseNumber: z.string().trim().optional(),
     screenshotAssets: uploadAssetsSchema.optional(),
   })
-  .transform((value) => ({
-    ...value,
-    contactEmail: value.contactEmail?.trim() || undefined,
-  }))
   .superRefine((value, ctx) => {
     const hasUrl = Boolean(value.listingUrl);
     const hasMessage = Boolean(value.messageText);
@@ -55,9 +47,7 @@ export const analyzeInputSchema = z
       });
     }
 
-    const hasAnyContactDetail = Boolean(
-      value.contactName || value.contactCompany || value.contactEmail || value.contactPhone || value.contactLicenseNumber,
-    );
+    const hasAnyContactDetail = Boolean(value.contactName);
 
     if (hasAnyContactDetail && !value.contactRole) {
       ctx.addIssue({
