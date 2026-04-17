@@ -6,6 +6,112 @@ interface VerifyContactIdentityInput {
   name?: string;
 }
 
+function stripHtml(value: string) {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#39;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getCookieHeader(response: Response) {
+  const headerBag = response.headers as Headers & {
+    getSetCookie?: () => string[];
+  };
+
+  if (typeof headerBag.getSetCookie === "function") {
+    return headerBag
+      .getSetCookie()
+      .map((cookie) => cookie.split(";")[0])
+      .join("; ");
+  }
+
+  const setCookie = response.headers.get("set-cookie");
+  if (!setCookie) {
+    return "";
+  }
+
+  return setCookie
+    .split(/,(?=[^;]+?=)/)
+    .map((cookie) => cookie.split(";")[0])
+    .join("; ");
+}
+
+function classifyOfficialNameSearch(html: string, parsedName: { firstName: string; lastName: string }) {
+  if (!/Search Results List|License Number/i.test(html)) {
+    throw new Error("Official name lookup returned an unexpected response shape.");
+  }
+
+  const resultSection = html.split(/Search Results List/i).at(-1) ?? html;
+  const linkedNames = Array.from(resultSection.matchAll(/<a\b[^>]*>(.*?)<\/a>/gi))
+    .map((match) => stripHtml(match[1] ?? ""))
+    .filter((value) => {
+      const normalized = value.toLowerCase();
+      return (
+        normalized.length > 3 &&
+        normalized !== "back" &&
+        normalized !== "new search" &&
+        !normalized.includes("here's how you know")
+      );
+    });
+
+  const uniqueNames = Array.from(new Set(linkedNames));
+  if (uniqueNames.length === 0) {
+    return {
+      matched: false,
+      ambiguous: false,
+      confidence: 0.4,
+      notes: ["No official name match was found in the current NY license lookup response."],
+    };
+  }
+
+  const fullName = `${parsedName.firstName} ${parsedName.lastName}`.toLowerCase();
+  const fullNameTokens = fullName.split(/\s+/).filter(Boolean);
+  const exactMatches = uniqueNames.filter((candidate) => candidate.toLowerCase() === fullName);
+
+  if (exactMatches.length === 1 && uniqueNames.length === 1) {
+    return {
+      matched: true,
+      ambiguous: false,
+      confidence: 0.8,
+      notes: ["A single official name match was found in the current NY license lookup response."],
+    };
+  }
+
+  const tokenMatches = uniqueNames.filter((candidate) => {
+    const normalized = candidate.toLowerCase();
+    return fullNameTokens.every((token) => normalized.includes(token));
+  });
+
+  if (tokenMatches.length === 1 && uniqueNames.length === 1) {
+    return {
+      matched: true,
+      ambiguous: false,
+      confidence: 0.76,
+      notes: ["A likely official name match was found in the current NY license lookup response."],
+    };
+  }
+
+  if (tokenMatches.length > 1 || uniqueNames.length > 1) {
+    return {
+      matched: false,
+      ambiguous: true,
+      confidence: 0.46,
+      notes: ["Multiple official matches were found for this name, so identity could not be confirmed from name alone."],
+    };
+  }
+
+  return {
+    matched: false,
+    ambiguous: false,
+    confidence: 0.4,
+    notes: ["No official name match was found in the current NY license lookup response."],
+  };
+}
+
 function splitFullName(name?: string) {
   if (!name) {
     return null;
@@ -85,6 +191,13 @@ export async function verifyContactIdentity(input: VerifyContactIdentityInput) {
   }
 
   try {
+    const preflightResponse = await fetch(serverEnv.nyLicenseLookupBaseUrl, {
+      method: "GET",
+      signal: AbortSignal.timeout(8000),
+      next: { revalidate: 0 },
+    });
+    const cookieHeader = getCookieHeader(preflightResponse);
+
     const formData = new URLSearchParams({
       firstName: parsedName.firstName,
       lastName: parsedName.lastName,
@@ -97,6 +210,8 @@ export async function verifyContactIdentity(input: VerifyContactIdentityInput) {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+        Referer: serverEnv.nyLicenseLookupBaseUrl,
       },
       body: formData.toString(),
       signal: AbortSignal.timeout(8000),
@@ -108,23 +223,15 @@ export async function verifyContactIdentity(input: VerifyContactIdentityInput) {
     }
 
     const html = await response.text();
-    const normalizedHtml = html.toLowerCase();
-    const fullName = `${parsedName.firstName} ${parsedName.lastName}`.toLowerCase();
-    const matchCount = normalizedHtml.split(fullName).length - 1;
-    const matched = matchCount === 1;
-    const ambiguous = matchCount > 1;
+    const classifiedResult = classifyOfficialNameSearch(html, parsedName);
 
     return {
       status: "completed" as const,
-      matched,
-      ambiguous,
-      shouldPenalize: role === "broker_agent" && !matched && !ambiguous,
-      confidence: matched ? 0.8 : ambiguous ? 0.46 : 0.4,
-      notes: matched
-        ? ["A single official name match was found in the current NY license lookup response."]
-        : ambiguous
-          ? ["Multiple official matches were found for this name, so identity could not be confirmed from name alone."]
-          : ["No official name match was found in the current NY license lookup response."],
+      matched: classifiedResult.matched,
+      ambiguous: classifiedResult.ambiguous,
+      shouldPenalize: role === "broker_agent" && !classifiedResult.matched && !classifiedResult.ambiguous,
+      confidence: classifiedResult.confidence,
+      notes: classifiedResult.notes,
     };
   } catch (error) {
     console.error("Official name lookup failed:", error);

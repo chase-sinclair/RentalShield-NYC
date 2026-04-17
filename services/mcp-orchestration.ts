@@ -201,9 +201,6 @@ function buildDegradedChecks(input: {
     input.scoringModelId === "deterministic-fallback"
       ? "risk_scoring_tool used deterministic fallback scoring."
       : "",
-    input.brokerStatus === "mock"
-      ? "broker_verification_tool used fallback provider behavior."
-      : "",
   ]);
 }
 
@@ -286,7 +283,11 @@ export async function runAnalysisOrchestration(
   trace.push(
     createTraceEntry(
       "broker_verification_tool",
-      brokerVerification.status === "skipped" ? "skipped" : "completed",
+      brokerVerification.status === "completed"
+        ? "completed"
+        : brokerVerification.status === "skipped"
+          ? "skipped"
+          : "failed",
       brokerVerification.notes.join(" "),
     ),
   );

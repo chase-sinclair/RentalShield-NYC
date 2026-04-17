@@ -783,3 +783,10 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Softened user-facing lookup failure language so provider errors no longer surface raw status details like `404` in the result; technical failures are logged server-side instead.
 - Kept broker/agent-specific scoring stricter only when the contact is explicitly tagged as `Broker / agent`, while unknown or non-broker roles remain neutral unless stronger contradictory evidence appears.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the name-only lookup change. Validation passed cleanly.
+
+### Post-Phase Follow-Up - Official Name Lookup Failure Handling
+- QA on the NY eAccessNY integration showed that some name searches were failing outright before result classification, which made the app surface the broker/agent check as a completed fallback instead of an unavailable provider lookup.
+- Added a preflight GET plus cookie/referer carry-through to the official NY name-search request path so the integration behaves more like a session-backed form flow.
+- Replaced naive exact-string counting with result-page classification that looks for an actual results-list response and separates `single likely match`, `multiple official matches`, and `no official match` outcomes more explicitly.
+- Updated orchestration trace handling so broker verification lookup outages now appear as unavailable/failed checks instead of completed fallback behavior in the assessment panel.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the lookup failure-handling update. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.
