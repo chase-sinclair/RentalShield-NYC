@@ -8,8 +8,7 @@ interface ScoreDisplayProps {
   label: ScamRiskLabel;
   summary: string;
   confidenceNote: string;
-  configuredModelId: string;
-  modelIdUsed: string;
+  checksRun: string[];
 }
 
 const labelStyles: Record<ScamRiskLabel, string> = {
@@ -20,7 +19,7 @@ const labelStyles: Record<ScamRiskLabel, string> = {
 
 function getGaugeRotation(score: number) {
   const clamped = Math.max(0, Math.min(100, score));
-  return -90 + clamped * 1.8;
+  return -180 + clamped * 1.8;
 }
 
 export function ScoreDisplay({
@@ -28,11 +27,13 @@ export function ScoreDisplay({
   label,
   summary,
   confidenceNote,
-  configuredModelId,
-  modelIdUsed,
+  checksRun,
 }: ScoreDisplayProps) {
-  const usedFallback = modelIdUsed.includes("fallback");
   const gaugeRotation = getGaugeRotation(score);
+  const checkSummary =
+    checksRun.length > 0
+      ? "AI extraction, rent context, address verification, and contact lookup were included where available."
+      : "RentalShield used the submitted evidence available for this result.";
 
   return (
     <Card className="overflow-hidden p-0">
@@ -46,13 +47,13 @@ export function ScoreDisplay({
           <div className="mt-8">
             <div className="relative mx-auto w-full max-w-[220px]">
               <div className="relative h-[118px] overflow-hidden">
-                <div className="absolute inset-x-0 top-0 mx-auto h-[220px] w-[220px] rounded-full bg-[conic-gradient(from_180deg,_#22c55e_0deg,_#22c55e_60deg,_#facc15_60deg,_#facc15_120deg,_#ef4444_120deg,_#ef4444_180deg,_transparent_180deg)]" />
+                <div className="absolute inset-x-0 top-0 mx-auto h-[220px] w-[220px] rounded-full bg-[conic-gradient(from_270deg,_#22c55e_0deg,_#22c55e_60deg,_#facc15_60deg,_#facc15_120deg,_#ef4444_120deg,_#ef4444_180deg,_transparent_180deg)]" />
                 <div className="absolute inset-x-0 top-[22px] mx-auto h-[176px] w-[176px] rounded-full bg-primary" />
                 <div
-                  className="absolute left-1/2 top-[106px] h-[3px] w-[74px] origin-left rounded-full bg-white shadow-[0_0_0_3px_rgba(15,23,42,0.12)]"
+                  className="absolute left-1/2 top-[110px] h-[3px] w-[74px] origin-left rounded-full bg-white shadow-[0_0_0_3px_rgba(15,23,42,0.12)]"
                   style={{ transform: `rotate(${gaugeRotation}deg)` }}
                 />
-                <div className="absolute left-1/2 top-[106px] h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-white" />
+                <div className="absolute left-1/2 top-[110px] h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-white" />
               </div>
               <div className="mt-1 flex items-center justify-between px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/72">
                 <span>Low</span>
@@ -77,13 +78,11 @@ export function ScoreDisplay({
             </div>
             <div className="rounded-2xl border border-border bg-secondary/35 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Execution mode
+                Checks used
               </p>
-              <p className="mt-2 break-all text-sm leading-6 text-foreground">
-                {usedFallback ? "Fallback logic was used for the final risk score." : modelIdUsed}
-              </p>
-              <p className="mt-2 break-all text-xs leading-5 text-muted-foreground">
-                Configured primary model: {configuredModelId}
+              <p className="mt-2 text-sm leading-6 text-foreground">{checkSummary}</p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                {checksRun.length} check{checksRun.length === 1 ? "" : "s"} completed for this result.
               </p>
             </div>
           </div>

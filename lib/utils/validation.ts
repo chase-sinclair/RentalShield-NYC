@@ -18,6 +18,7 @@ export const uploadAssetsSchema = z.array(uploadedAssetSchema).max(serverEnv.max
 export const analyzeInputSchema = z
   .object({
     listingUrl: z.string().trim().optional(),
+    manualAddress: z.string().trim().optional(),
     messageText: z.string().trim().optional(),
     manualRent: z
       .union([z.number().nonnegative(), z.nan()])

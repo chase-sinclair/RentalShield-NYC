@@ -35,6 +35,7 @@ export interface ExtractedFacts {
 
 export interface AnalysisInput {
   listingUrl?: string;
+  manualAddress?: string;
   messageText?: string;
   manualRent?: number;
   contactRole?: ContactRole;
@@ -107,4 +108,13 @@ export interface UploadResponse {
     maxUploadFileSizeMb: number;
   };
   notes?: string[];
+}
+
+export interface AddressPreflightResponse {
+  ok: boolean;
+  addressFound: boolean;
+  candidateAddress?: string;
+  source?: "message" | "manual" | "metadata" | "url";
+  needsManualAddress: boolean;
+  notes: string[];
 }

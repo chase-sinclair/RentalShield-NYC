@@ -803,3 +803,13 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Added an editable outline/source file at `docs/RentalShield-NYC-Demo-Deck-Outline.md` documenting the deck purpose, visual direction, slide list, safe product claims, and claims to avoid.
 - The deck frames RentalShield NYC as a Manhattan-first AI rental scam screening assistant and covers the problem, why-now, product flow, features, result experience, Bedrock + verification pipeline, MCP-compatible architecture, tech stack, MVP scope, demo scenarios, and roadmap.
 - No application code changed for this deck-only update, so lint/build/typecheck were not rerun.
+
+### Product Update - Homepage Split, Triage Flow, And Address Preflight
+- Refactored the homepage so it no longer embeds the analysis form; it now focuses on the product value story and shows a high-fidelity report preview component with score, verified facts, ranked signals, and next-step guidance.
+- Updated `/analyze` into the full transactional workspace with a two-path entry selector: `I found a listing` for low-friction URL/rent/screenshot checks and `Someone contacted me` for deeper message/contact review. Both paths still use one shared form and one analysis API flow.
+- Added `manualAddress` to the analysis input contract, validation, and API handling, plus a new `/api/analyze/preflight` route that checks whether a concrete rental address can be inferred before screenshots are uploaded or the full analysis runs.
+- Extended `services/listing-parsing.ts` beyond StreetEasy by adding metadata extraction and URL slug heuristics for Redfin, Apartments.com, Zillow, and generic rental URLs, while keeping conservative precedence: message address, manual address, metadata, known URL parser, generic URL parser.
+- Added an inline manual-address warning/resume flow in the form. When preflight cannot infer an address, the user can provide it manually and resubmit without losing state, or explicitly continue with limited address/rent/property checks.
+- Removed user-facing model IDs from the risk summary card and replaced the `Execution mode` panel with a `Checks used` panel; model IDs remain available in result payloads/traces for debugging.
+- Smoke-tested preflight extraction for sample Redfin, Apartments.com, Zillow, StreetEasy, and missing-address URLs. Expected address candidates were returned and missing-address submissions correctly requested manual address input.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the update. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.

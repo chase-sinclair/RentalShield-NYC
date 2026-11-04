@@ -8,6 +8,7 @@ import { analyzeInputSchema } from "@/lib/utils/validation";
 export async function POST(request: Request) {
   const body = (await request.json()) as {
     listingUrl?: string;
+    manualAddress?: string;
     messageText?: string;
     manualRent?: number;
     contactRole?: "broker_agent" | "owner" | "property_manager" | "leasing_office" | "unknown";

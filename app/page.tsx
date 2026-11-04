@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Building2, MapPinned, ShieldCheck, Sparkles } from "lucide-react";
 
-import { AnalysisForm } from "@/components/analysis-form";
+import { ReportPreview } from "@/components/report-preview";
 import { Card } from "@/components/ui/card";
 
 const featureCards = [
@@ -25,7 +25,7 @@ const featureCards = [
 export default function HomePage() {
   return (
     <div className="pb-16">
-      <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-10 pt-10 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8 lg:pt-16">
+      <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-10 pt-10 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:pt-16">
         <div className="space-y-8">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm">
             <Sparkles className="h-4 w-4 text-primary" />
@@ -67,23 +67,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <Card className="relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-primary/10 via-transparent to-primary/5" />
-          <div className="relative">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Submit Evidence
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold text-foreground">Start with what you already have</h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Paste a message, drop screenshots from your phone, or add a listing URL. The current
-              MVP supports live request handling, optional Supabase persistence, explainable scoring,
-              and Manhattan-focused verification with graceful fallbacks when checks are unavailable.
-            </p>
-            <div className="mt-6">
-              <AnalysisForm compact />
-            </div>
-          </div>
-        </Card>
+        <ReportPreview />
       </section>
     </div>
   );

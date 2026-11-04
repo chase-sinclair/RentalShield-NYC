@@ -4,11 +4,11 @@ import { SectionCard } from "@/components/section-card";
 
 export default function AnalyzePage() {
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
       <SectionCard
         eyebrow="Analysis"
-        title="Analyze a rental listing"
-        description="Use this page when you want the full submission flow with listing input, message evidence, screenshots, validation, and the current explainable Manhattan-focused scoring pipeline."
+        title="Choose the path that matches your situation"
+        description="Start with a quick listing gut-check or a deeper contact-message review. Both paths use the same analysis pipeline and preserve your evidence as you move through the form."
       >
         <AnalysisForm />
       </SectionCard>
