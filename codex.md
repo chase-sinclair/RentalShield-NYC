@@ -797,3 +797,9 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Updated official matching logic to tokenize the submitted name, query the active-license dataset once, and classify the result as `single match`, `multiple matches`, or `no official match` without exposing raw provider details to the user.
 - Kept the product behavior aligned with earlier scoring work: multiple official matches remain ambiguous rather than failed, and provider outages still surface as unavailable verification rather than a completed check.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the dataset-lookup update. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.
+
+### Demo Asset - Modern AI Presentation Deck
+- Created a polished 12-slide demo PowerPoint for RentalShield NYC in `docs/RentalShield-NYC-Demo-Deck.pptx`.
+- Added an editable outline/source file at `docs/RentalShield-NYC-Demo-Deck-Outline.md` documenting the deck purpose, visual direction, slide list, safe product claims, and claims to avoid.
+- The deck frames RentalShield NYC as a Manhattan-first AI rental scam screening assistant and covers the problem, why-now, product flow, features, result experience, Bedrock + verification pipeline, MCP-compatible architecture, tech stack, MVP scope, demo scenarios, and roadmap.
+- No application code changed for this deck-only update, so lint/build/typecheck were not rerun.
