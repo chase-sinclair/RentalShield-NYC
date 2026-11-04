@@ -790,3 +790,10 @@ Do **not** overbuild. This is an MVP, but it should be architected cleanly enoug
 - Replaced naive exact-string counting with result-page classification that looks for an actual results-list response and separates `single likely match`, `multiple official matches`, and `no official match` outcomes more explicitly.
 - Updated orchestration trace handling so broker verification lookup outages now appear as unavailable/failed checks instead of completed fallback behavior in the assessment panel.
 - Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the lookup failure-handling update. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.
+
+### Post-Phase Follow-Up - Official NY Broker Dataset Lookup
+- Retrieved the live NY Open Data broker dataset schema and confirmed an official active-license source exists with `license_holder_name`, `license_number`, `license_type`, and associated brokerage details.
+- Swapped broker/agent verification from the brittle eAccessNY form flow to a single official NY Open Data dataset query against `Active Real Estate Salespersons and Brokers`, which is better suited to name-only verification in the MVP.
+- Updated official matching logic to tokenize the submitted name, query the active-license dataset once, and classify the result as `single match`, `multiple matches`, or `no official match` without exposing raw provider details to the user.
+- Kept the product behavior aligned with earlier scoring work: multiple official matches remain ambiguous rather than failed, and provider outages still surface as unavailable verification rather than a completed check.
+- Ran `npm run lint`, `npm run build`, and `npm run typecheck` after the dataset-lookup update. Validation passed cleanly after rerunning `typecheck` once the `.next/types` artifacts were settled.
