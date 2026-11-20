@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  applyResults, initialState, parseBaseline, receiveBaseline, saveApartment, withApartment, type Work,
+  applyResearchRent, applyResults, initialState, parseBaseline, receiveBaseline, saveApartment, withApartment, type Work,
 } from "../../components/apartments/report-state";
 import { confirmedInput, type Slot } from "../../lib/apartments/contracts";
 import { demoApartments } from "../../lib/apartments/demo";
@@ -18,7 +18,11 @@ test("receives only confirmed A from another tab and preserves B and Research", 
   const bEntry = withApartment(b, "b");
   const research = withApartment(a, "research");
   const local = { ...initialState, entries: { ...initialState.entries, b: bEntry, research } };
-  const saved = saveApartment(a);
+  const saved = {
+    version: 1,
+    input: { street: a.report.address.street, area: a.report.address.borough, selection: a.report.address.key },
+    askingRentCents: a.askingRentCents,
+  };
   const parsed = parseBaseline(JSON.stringify(saved));
   const synced = receiveBaseline(local, parsed);
   assert.deepEqual(synced.baseline, saved);
@@ -61,4 +65,36 @@ test("Research can seed an empty A but preserves a baseline that arrived during 
   assert.equal(independent.entries.research.apartment?.report, b.report);
   assert.equal(independent.entries.a.draft.street, a.report.address.street);
   assert.equal(applyResults(initialState, [work("research", b)], [result("research", b)], current).baseline, undefined);
+});
+
+test("saving and clearing an asking rent carries into the active Research seed", () => {
+  const seed = { ...work("research"), rent: undefined, seedBaseline: true };
+  const seeded = applyResults(initialState, [seed], [result("research")], current);
+  const edited = applyResearchRent(seeded, 265035);
+  assert.equal(edited.entries.research.apartment?.askingRentCents, 265035);
+  assert.equal(edited.entries.a.apartment?.askingRentCents, 265035);
+  assert.equal(edited.entries.a.draft.rent, "2650.35");
+  assert.equal(parseBaseline(JSON.stringify(edited.baseline))?.askingRentCents, 265035);
+  assert.equal(edited.baseline?.revision, seeded.baseline?.revision);
+
+  const clearedRent = applyResearchRent(edited, undefined);
+  assert.equal(clearedRent.entries.a.apartment?.askingRentCents, undefined);
+  assert.equal(clearedRent.entries.a.draft.rent, "");
+  assert.equal(parseBaseline(JSON.stringify(clearedRent.baseline))?.askingRentCents, undefined);
+});
+
+test("research rent edits stay independent after A or the Research result is replaced", () => {
+  const seeded = applyResults(initialState, [{ ...work("research"), seedBaseline: true }], [result("research")], current);
+  const replacement = { ...a, askingRentCents: 321000 };
+  const updatedA = applyResults(seeded, [work("a", replacement)], [result("a", replacement)], current);
+  const updatedResearch = applyResults(seeded, [work("research")], [result("research")], current);
+  const newSaved = parseBaseline(JSON.stringify({ ...saveApartment(a), revision: "591f443e-a066-4d56-82df-f71497260a5c" }));
+  const fromOtherTab = receiveBaseline(seeded, newSaved);
+
+  for (const state of [updatedA, updatedResearch, fromOtherTab]) {
+    const edited = applyResearchRent(state, 275000);
+    assert.equal(edited.baseline, state.baseline);
+    assert.equal(edited.entries.a, state.entries.a);
+    assert.equal(edited.entries.research.apartment?.askingRentCents, 275000);
+  }
 });

@@ -6,7 +6,7 @@ import { parseRent } from "@/lib/apartments/comparison";
 import { confirmedInput, type Apartment, type ReportResponse, type ReportSlot, type Slot } from "@/lib/apartments/contracts";
 
 import {
-  applyResults, baselineKey, draftFor, emptySlot, initialState, parseBaseline, receiveBaseline, saveApartment, withApartment,
+  applyResearchRent, applyResults, baselineKey, emptySlot, initialState, parseBaseline, receiveBaseline, saveApartment, withApartment,
   type AddressDraft, type SlotState, type Work, type WorkspaceState,
 } from "./report-state";
 
@@ -186,7 +186,7 @@ export function useReports(openCompare: boolean) {
   function clear() {
     updateBaseline((previous) => {
       ++requestSequence.current.a;
-      return { ...previous, baseline: undefined, entries: { ...previous.entries, a: emptySlot() } };
+      return { ...previous, baseline: undefined, entries: { ...previous.entries, a: emptySlot() }, researchSeededBaseline: false };
     });
   }
 
@@ -201,14 +201,16 @@ export function useReports(openCompare: boolean) {
         ...previous,
         baseline: saveApartment(b),
         entries: { ...previous.entries, a: withApartment(b, "a"), b: withApartment(a, "b") },
+        researchSeededBaseline: false,
       };
     });
   }
 
   function setResearchRent(askingRentCents?: number) {
-    updateSlot("research", (entry) => entry.apartment
-      ? { ...entry, apartment: { ...entry.apartment, askingRentCents }, draft: { ...entry.draft, rent: draftFor(entry.draft, askingRentCents).rent } }
-      : entry);
+    const addressKey = state.entries.research.apartment?.report.address.key;
+    updateBaseline((previous) => previous.entries.research.apartment?.report.address.key === addressKey
+      ? applyResearchRent(previous, askingRentCents)
+      : previous);
   }
 
   return { ...state, editDraft, beginReplace, cancelReplace, refresh, submit, clear, swap, setResearchRent };

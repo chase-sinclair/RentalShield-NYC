@@ -23,10 +23,16 @@ const savedSchema = z.object({
     selection: z.string().min(1).max(420).optional(),
   }),
   askingRentCents: z.number().int().nonnegative().max(maxRentCents).optional(),
+  revision: z.string().uuid().optional(),
 });
 
 type SavedBaseline = z.infer<typeof savedSchema>;
-export type WorkspaceState = { entries: Record<Slot, SlotState>; baseline?: SavedBaseline; ready: boolean };
+export type WorkspaceState = {
+  entries: Record<Slot, SlotState>;
+  baseline?: SavedBaseline;
+  researchSeededBaseline: boolean;
+  ready: boolean;
+};
 export type Work = {
   slot: Slot;
   input: AddressInput;
@@ -37,7 +43,11 @@ export type Work = {
 
 export const baselineKey = "rentalshield:apartments:baseline:v1";
 export const emptySlot = (): SlotState => ({ draft: { street: "", area: "", rent: "" }, editing: true });
-export const initialState: WorkspaceState = { entries: { a: emptySlot(), b: emptySlot(), research: emptySlot() }, ready: false };
+export const initialState: WorkspaceState = {
+  entries: { a: emptySlot(), b: emptySlot(), research: emptySlot() },
+  researchSeededBaseline: false,
+  ready: false,
+};
 
 export function parseBaseline(stored: string | null): SavedBaseline | undefined {
   if (!stored) return undefined;
@@ -59,6 +69,8 @@ export function saveApartment(apartment: Apartment): SavedBaseline {
     version: 1,
     input: { ...confirmedInput(address), area: address.zip ?? address.borough },
     askingRentCents: apartment.askingRentCents,
+    // A new listing may have the same building and rent as the previous A.
+    revision: globalThis.crypto?.randomUUID?.(),
   };
 }
 
@@ -77,7 +89,7 @@ function sameInput(a: AddressInput, b: AddressInput) {
 export function receiveBaseline(state: WorkspaceState, baseline?: SavedBaseline): WorkspaceState {
   const saved = state.baseline;
   if (baseline === saved || (baseline && saved && sameInput(baseline.input, saved.input) &&
-      baseline.askingRentCents === saved.askingRentCents)) return state;
+      baseline.askingRentCents === saved.askingRentCents && baseline.revision === saved.revision)) return state;
 
   let a = emptySlot();
   if (baseline) {
@@ -86,12 +98,12 @@ export function receiveBaseline(state: WorkspaceState, baseline?: SavedBaseline)
       ? withApartment({ ...apartment, askingRentCents: baseline.askingRentCents }, "a")
       : { ...a, draft: draftFor(baseline.input, baseline.askingRentCents) };
   }
-  return { ...state, baseline, entries: { ...state.entries, a } };
+  return { ...state, baseline, entries: { ...state.entries, a }, researchSeededBaseline: false };
 }
 
 export function applyResults(state: WorkspaceState, work: Work[], results: ReportSlot[], current: (slot: Slot) => boolean): WorkspaceState {
   const entries = { ...state.entries };
-  let baseline = state.baseline;
+  let { baseline, researchSeededBaseline } = state;
   for (const item of work) {
     const { slot, purpose, rent } = item;
     if (!current(slot)) continue;
@@ -113,10 +125,33 @@ export function applyResults(state: WorkspaceState, work: Work[], results: Repor
     entries[slot] = withApartment(apartment, slot);
     if (slot === "a" && purpose === "replace") {
       baseline = saveApartment(apartment);
-    } else if (slot === "research" && item.seedBaseline && !baseline && !entries.a.pending && !entries.a.apartment) {
-      baseline = saveApartment(apartment);
-      entries.a = withApartment(apartment, "a");
+      researchSeededBaseline = false;
+    } else if (slot === "research") {
+      researchSeededBaseline = Boolean(item.seedBaseline && !baseline && !entries.a.pending && !entries.a.apartment);
+      if (researchSeededBaseline) {
+        baseline = saveApartment(apartment);
+        entries.a = withApartment(apartment, "a");
+      }
     }
   }
-  return { ...state, entries, baseline };
+  return { ...state, entries, baseline, researchSeededBaseline };
+}
+
+function withRent(entry: SlotState, askingRentCents?: number, keepDraft = false): SlotState {
+  if (!entry.apartment) return entry;
+  return {
+    ...entry,
+    apartment: { ...entry.apartment, askingRentCents },
+    draft: keepDraft ? entry.draft : { ...entry.draft, rent: draftFor(entry.draft, askingRentCents).rent },
+  };
+}
+
+export function applyResearchRent(state: WorkspaceState, askingRentCents?: number): WorkspaceState {
+  const { a, research } = state.entries;
+  if (!research.apartment || research.apartment.askingRentCents === askingRentCents) return state;
+  const entries = { ...state.entries, research: withRent(research, askingRentCents) };
+  if (!state.researchSeededBaseline || !state.baseline) return { ...state, entries };
+
+  entries.a = withRent(a, askingRentCents, a.editing);
+  return { ...state, entries, baseline: { ...state.baseline, askingRentCents } };
 }
