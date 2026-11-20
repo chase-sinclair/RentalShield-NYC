@@ -18,9 +18,10 @@ const dollars = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 });
+const dollarsAndCents = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const numbers = new Intl.NumberFormat("en-US");
 
-export const formatRent = (cents: number) => dollars.format(cents / 100);
+export const formatRent = (cents: number) => (cents % 100 === 0 ? dollars : dollarsAndCents).format(cents / 100);
 export const formatCount = (count: number) => numbers.format(count);
 
 export function parseRent(value: string) {

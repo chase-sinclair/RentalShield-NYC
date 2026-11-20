@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { formatDeparture } from "@/lib/apartments/calendar";
 import { formatDuration } from "@/lib/apartments/comparison";
 import { addressLabel, isDestinationAddress, type Apartment, type Destination, type RouteAssumptions, type RouteResult } from "@/lib/apartments/contracts";
@@ -31,7 +33,9 @@ export function RouteValue({ route, apartment, destination, assumptions }: {
         {route.provenance === "demo" ? (
           <p className="apt-note"><strong>Sample estimate</strong></p>
         ) : (
-          <p className="apt-note apt-google" translate="no">Google Maps</p>
+          <span className="apt-google" translate="no">
+            <Image src="/google-maps-attribution.png" width={98} height={18} alt="Google Maps" unoptimized />
+          </span>
         )}
         {!!route.lines?.length && <p className="apt-note">{route.lines.join(" · ")}</p>}
         {route.retrievedAt && <p className="apt-note">Estimated {routeTimes.format(new Date(route.retrievedAt))} (New York time)</p>}
