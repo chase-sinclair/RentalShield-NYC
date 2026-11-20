@@ -42,6 +42,7 @@ export interface ApartmentAddress {
   longitude: number;
   bin?: string;
   bbl?: string;
+  identityConflict?: true;
 }
 
 export function addressLabel(address: ApartmentAddress) {
@@ -50,6 +51,10 @@ export function addressLabel(address: ApartmentAddress) {
 
 export function confirmedInput(address: ApartmentAddress): AddressInput {
   return { street: address.street, area: address.zip ?? address.borough, selection: address.key };
+}
+
+export function routeOriginKey(address: ApartmentAddress) {
+  return [address.key, address.latitude, address.longitude].join("|");
 }
 
 export interface AddressCandidate {
@@ -107,6 +112,7 @@ export interface EvidenceScope {
   radiusMeters?: number;
   retrievedAt?: string;
   publishedAt?: string;
+  building?: { bin: string; bbl?: string; hpdBuildingId?: string };
 }
 
 export type EvidenceStatus<T> =
@@ -180,6 +186,7 @@ export type RouteResult = {
 );
 
 export interface CommuteResponse {
+  overall: "complete" | "disabled" | "throttled";
   assumptions: RouteAssumptions;
   results: RouteResult[];
 }

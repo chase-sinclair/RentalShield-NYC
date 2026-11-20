@@ -1,4 +1,5 @@
 import { reportingWindow } from "./calendar";
+import { routeOriginKey } from "./contracts";
 import type {
   Apartment, ApartmentAddress, BedbugFiling, Destination, Evidence, RouteAssumptions, RouteResult, Source,
 } from "./contracts";
@@ -70,7 +71,7 @@ export function demoRoutes(assumptions: RouteAssumptions): RouteResult[] {
   return demoApartments.map(({ report }, index) => ({
     provenance: "demo",
     status: "available",
-    originKey: report.address.key,
+    originKey: routeOriginKey(report.address),
     destination: demoWork,
     assumptions,
     seconds: minutes[index] * 60,

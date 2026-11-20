@@ -2,6 +2,7 @@ import { isMorning } from "./calendar";
 import {
   destinationLabels,
   maxRentCents,
+  routeOriginKey,
   type Apartment,
   type BedbugFiling,
   type DateWindow,
@@ -73,8 +74,9 @@ export function findRoute(
   assumptions: RouteAssumptions,
   results: RouteResult[],
 ) {
+  if (!apartment) return undefined;
   return results.find((result) =>
-    result.originKey === apartment?.report.address.key && result.provenance === apartment.report.provenance &&
+    result.originKey === routeOriginKey(apartment.report.address) && result.provenance === apartment.report.provenance &&
     result.destination.id === destination.id && result.destination.address === destination.address &&
     sameRouteAssumptions(result.assumptions, assumptions));
 }
