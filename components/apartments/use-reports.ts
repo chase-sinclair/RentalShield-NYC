@@ -6,8 +6,8 @@ import { parseRent } from "@/lib/apartments/comparison";
 import { confirmedInput, type Apartment, type ReportResponse, type ReportSlot, type Slot } from "@/lib/apartments/contracts";
 
 import {
-  applyResearchRent, applyResults, baselineKey, emptySlot, initialState, parseBaseline, receiveBaseline, saveApartment, withApartment,
-  type AddressDraft, type SlotState, type Work, type WorkspaceState,
+  applyResearchRent, applyResults, baselineClearKey, baselineKey, clearBaseline, emptySlot, initialState,
+  parseBaseline, receiveBaseline, saveApartment, withApartment, type AddressDraft, type SlotState, type Work, type WorkspaceState,
 } from "./report-state";
 
 export function needsRetry(apartment?: Apartment) {
@@ -37,7 +37,9 @@ export function useReports(openCompare: boolean) {
   const syncBaseline = useCallback((previous: WorkspaceState) => {
     if (!canPersist.current) return previous;
     try {
-      const next = receiveBaseline(previous, parseBaseline(localStorage.getItem(baselineKey)));
+      const clearCount = Number(localStorage.getItem(baselineClearKey));
+      const baseline = parseBaseline(localStorage.getItem(baselineKey));
+      const next = receiveBaseline(previous, baseline, Number.isSafeInteger(clearCount) && clearCount >= 0 ? clearCount : 0);
       if (next !== previous) {
         ++requestSequence.current.a;
         restoreAttempted.current = false;
@@ -54,13 +56,17 @@ export function useReports(openCompare: boolean) {
       // Read storage even if the browser has not delivered the other tab's storage event yet.
       const current = syncBaseline(previous);
       const next = update(current);
-      if (canPersist.current && next.baseline !== current.baseline) {
-        try {
-          if (next.baseline) localStorage.setItem(baselineKey, JSON.stringify(next.baseline));
-          else localStorage.removeItem(baselineKey);
-        } catch {
-          canPersist.current = false;
+      if (!canPersist.current) return next;
+      try {
+        if (next.baselineClearCount !== current.baselineClearCount) {
+          localStorage.removeItem(baselineKey);
+          // Keep a clear visible to requests from tabs that missed both the save and the removal.
+          localStorage.setItem(baselineClearKey, String(next.baselineClearCount));
+        } else if (next.baseline && next.baseline !== current.baseline) {
+          localStorage.setItem(baselineKey, JSON.stringify(next.baseline));
         }
+      } catch {
+        canPersist.current = false;
       }
       return next;
     });
@@ -74,7 +80,7 @@ export function useReports(openCompare: boolean) {
   useEffect(() => {
     mounted.current = true;
     const onStorage = (event: StorageEvent) => {
-      if (event.key === baselineKey || event.key === null) updateWorkspace(syncBaseline);
+      if (event.key === baselineKey || event.key === baselineClearKey || event.key === null) updateWorkspace(syncBaseline);
     };
     window.addEventListener("storage", onStorage);
     updateWorkspace((previous) => ({ ...syncBaseline(previous), ready: true }));
@@ -157,7 +163,8 @@ export function useReports(openCompare: boolean) {
   }
 
   function submit(slots: Slot[], selection?: string) {
-    const { entries, baseline } = workspace.current;
+    updateWorkspace(syncBaseline);
+    const { entries, baseline, baselineClearCount } = workspace.current;
     const work = slots.flatMap((slot): Work[] => {
       const { draft, pending, editing } = entries[slot];
       if (!editing || pending === "replace") return [];
@@ -170,7 +177,7 @@ export function useReports(openCompare: boolean) {
       }
       return [{
         slot, input: { street: draft.street, area: draft.area || undefined, selection }, purpose: "replace", rent,
-        seedBaseline: slot === "research" && !baseline,
+        seedAtClearCount: slot === "research" && !baseline ? baselineClearCount : undefined,
       }];
     });
     if (work.length === 1 && work[0].slot !== "research") {
@@ -186,7 +193,7 @@ export function useReports(openCompare: boolean) {
   function clear() {
     updateBaseline((previous) => {
       ++requestSequence.current.a;
-      return { ...previous, baseline: undefined, entries: { ...previous.entries, a: emptySlot() }, researchSeededBaseline: false };
+      return clearBaseline(previous);
     });
   }
 

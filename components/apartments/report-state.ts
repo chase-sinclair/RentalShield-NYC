@@ -30,6 +30,7 @@ type SavedBaseline = z.infer<typeof savedSchema>;
 export type WorkspaceState = {
   entries: Record<Slot, SlotState>;
   baseline?: SavedBaseline;
+  baselineClearCount: number;
   researchSeededBaseline: boolean;
   ready: boolean;
 };
@@ -38,13 +39,15 @@ export type Work = {
   input: AddressInput;
   rent?: number;
   purpose: "replace" | "restore" | "refresh";
-  seedBaseline?: boolean;
+  seedAtClearCount?: number;
 };
 
 export const baselineKey = "rentalshield:apartments:baseline:v1";
+export const baselineClearKey = baselineKey + ":clear-count";
 export const emptySlot = (): SlotState => ({ draft: { street: "", area: "", rent: "" }, editing: true });
 export const initialState: WorkspaceState = {
   entries: { a: emptySlot(), b: emptySlot(), research: emptySlot() },
+  baselineClearCount: 0,
   researchSeededBaseline: false,
   ready: false,
 };
@@ -86,10 +89,13 @@ function sameInput(a: AddressInput, b: AddressInput) {
   return a.street === b.street && a.area === b.area && a.selection === b.selection;
 }
 
-export function receiveBaseline(state: WorkspaceState, baseline?: SavedBaseline): WorkspaceState {
+export function receiveBaseline(
+  state: WorkspaceState, baseline?: SavedBaseline, baselineClearCount = state.baselineClearCount,
+): WorkspaceState {
   const saved = state.baseline;
-  if (baseline === saved || (baseline && saved && sameInput(baseline.input, saved.input) &&
-      baseline.askingRentCents === saved.askingRentCents && baseline.revision === saved.revision)) return state;
+  const sameBaseline = baseline === saved || (baseline && saved && sameInput(baseline.input, saved.input) &&
+    baseline.askingRentCents === saved.askingRentCents && baseline.revision === saved.revision);
+  if (sameBaseline && baselineClearCount === state.baselineClearCount) return state;
 
   let a = emptySlot();
   if (baseline) {
@@ -98,7 +104,17 @@ export function receiveBaseline(state: WorkspaceState, baseline?: SavedBaseline)
       ? withApartment({ ...apartment, askingRentCents: baseline.askingRentCents }, "a")
       : { ...a, draft: draftFor(baseline.input, baseline.askingRentCents) };
   }
-  return { ...state, baseline, entries: { ...state.entries, a }, researchSeededBaseline: false };
+  return { ...state, baseline, baselineClearCount, entries: { ...state.entries, a }, researchSeededBaseline: false };
+}
+
+export function clearBaseline(state: WorkspaceState): WorkspaceState {
+  return {
+    ...state,
+    baseline: undefined,
+    baselineClearCount: state.baselineClearCount + 1,
+    entries: { ...state.entries, a: emptySlot() },
+    researchSeededBaseline: false,
+  };
 }
 
 export function applyResults(state: WorkspaceState, work: Work[], results: ReportSlot[], current: (slot: Slot) => boolean): WorkspaceState {
@@ -127,7 +143,7 @@ export function applyResults(state: WorkspaceState, work: Work[], results: Repor
       baseline = saveApartment(apartment);
       researchSeededBaseline = false;
     } else if (slot === "research") {
-      researchSeededBaseline = Boolean(item.seedBaseline && !baseline && !entries.a.pending && !entries.a.apartment);
+      researchSeededBaseline = item.seedAtClearCount === state.baselineClearCount && !baseline && !entries.a.pending && !entries.a.apartment;
       if (researchSeededBaseline) {
         baseline = saveApartment(apartment);
         entries.a = withApartment(apartment, "a");

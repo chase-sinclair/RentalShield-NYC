@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  applyResearchRent, applyResults, initialState, parseBaseline, receiveBaseline, saveApartment, withApartment, type Work,
+  applyResearchRent, applyResults, clearBaseline, initialState, parseBaseline, receiveBaseline, saveApartment, withApartment, type Work,
 } from "../../components/apartments/report-state";
 import { confirmedInput, type Slot } from "../../lib/apartments/contracts";
 import { demoApartments } from "../../lib/apartments/demo";
@@ -53,7 +53,7 @@ test("restoring A does not replace the saved value and a stale A result leaves B
 });
 
 test("Research can seed an empty A but preserves a baseline that arrived during the lookup", () => {
-  const seed = { ...work("research", b), seedBaseline: true };
+  const seed = { ...work("research", b), seedAtClearCount: initialState.baselineClearCount };
   const seeded = applyResults(initialState, [seed], [result("research", b)], current);
   assert.equal(seeded.baseline?.input.selection, b.report.address.key);
   assert.equal(seeded.entries.a.apartment?.report, b.report);
@@ -67,8 +67,29 @@ test("Research can seed an empty A but preserves a baseline that arrived during 
   assert.equal(applyResults(initialState, [work("research", b)], [result("research", b)], current).baseline, undefined);
 });
 
+test("a clear prevents earlier Research from seeding A even when another tab saw A empty throughout", () => {
+  const earlier = { ...work("research", b), seedAtClearCount: initialState.baselineClearCount };
+  const pair = applyResults(initialState, [work("a"), work("b", b)], [result("a"), result("b", b)], current);
+  const cleared = clearBaseline(pair);
+  assert.equal(cleared.entries.b, pair.entries.b);
+  const otherTab = receiveBaseline(initialState, undefined, cleared.baselineClearCount);
+
+  for (const state of [cleared, otherTab]) {
+    const completed = applyResults(state, [earlier], [result("research", b)], current);
+    assert.equal(completed.baseline, undefined);
+    assert.equal(completed.entries.a.apartment, undefined);
+    assert.equal(completed.entries.b, state.entries.b);
+    assert.equal(completed.entries.research.apartment?.report, b.report);
+    assert.equal(applyResearchRent(completed, 275000).baseline, undefined);
+
+    const fresh = { ...earlier, seedAtClearCount: state.baselineClearCount };
+    const seeded = applyResults(completed, [fresh], [result("research", b)], current);
+    assert.equal(seeded.baseline?.input.selection, b.report.address.key);
+  }
+});
+
 test("saving and clearing an asking rent carries into the active Research seed", () => {
-  const seed = { ...work("research"), rent: undefined, seedBaseline: true };
+  const seed = { ...work("research"), rent: undefined, seedAtClearCount: initialState.baselineClearCount };
   const seeded = applyResults(initialState, [seed], [result("research")], current);
   const edited = applyResearchRent(seeded, 265035);
   assert.equal(edited.entries.research.apartment?.askingRentCents, 265035);
@@ -84,7 +105,8 @@ test("saving and clearing an asking rent carries into the active Research seed",
 });
 
 test("research rent edits stay independent after A or the Research result is replaced", () => {
-  const seeded = applyResults(initialState, [{ ...work("research"), seedBaseline: true }], [result("research")], current);
+  const seed = { ...work("research"), seedAtClearCount: initialState.baselineClearCount };
+  const seeded = applyResults(initialState, [seed], [result("research")], current);
   const replacement = { ...a, askingRentCents: 321000 };
   const updatedA = applyResults(seeded, [work("a", replacement)], [result("a", replacement)], current);
   const updatedResearch = applyResults(seeded, [work("research")], [result("research")], current);
