@@ -34,8 +34,11 @@ export const addressInputSchema = z.object({
   selection: z.string().min(1).max(420).optional(),
 });
 
-export function removeUnitSuffix(address: string) {
-  return address.trim().replace(/(?:^|\s*,\s*|\s+)(?:(?:APT\.?|APARTMENT|UNIT|SUITE|STE\.?|FLOOR|FL\.?)(?=\s|#)\s*[#\w-].*|#\s*[\w-].*)$/i, "").trim();
+function splitAroundUnit(address: string): [string, string] {
+  const text = address.trim();
+  const unit = /(?:^|\s*,\s*|\s+)(?:(?:APT\.?|APARTMENT|UNIT|SUITE|STE\.?|FLOOR|FL\.?)(?=\s|#)\s*#?\s*|#\s*)[\w-]+/i.exec(text);
+  if (!unit) return [text, ""];
+  return [text.slice(0, unit.index).trim(), text.slice(unit.index + unit[0].length).trim()];
 }
 
 function normalizedText(value: string) {
@@ -79,8 +82,7 @@ function parseArea(text: string): AreaHints | null {
   return borough ? { borough } : null;
 }
 
-function pastedArea(part: string): AreaHints {
-  const text = removeUnitSuffix(part);
+function pastedArea(text: string): AreaHints {
   const zip = zipAtEnd.exec(text);
   const locality = (zip ? text.slice(0, zip.index) : text).replace(/\s+(?:N\.?Y\.?|New York)$/i, "");
   return { zip: zip?.[1], borough: boroughFrom(locality) };
@@ -88,12 +90,14 @@ function pastedArea(part: string): AreaHints {
 
 function parseAddress(input: AddressInput) {
   const [first, ...rest] = input.street.split(",");
-  const houseStreet = splitHouse(removeUnitSuffix(first));
+  const [street, localityAfterUnit] = splitAroundUnit(first);
+  const houseStreet = splitHouse(street);
   const explicit = parseArea(input.area ?? "");
   if (input.area && !explicit) return { houseStreet, error: "Enter an NYC borough or a five-digit ZIP." };
 
+  const localities = [localityAfterUnit, ...rest.flatMap(splitAroundUnit)];
   const area: AreaHints = {};
-  for (const hint of [...rest.map(pastedArea), explicit]) {
+  for (const hint of [...localities.map(pastedArea), explicit]) {
     if (!hint) continue;
     if ((area.zip && hint.zip && area.zip !== hint.zip) || (area.borough && hint.borough && area.borough !== hint.borough)) {
       return { houseStreet, error: "The address contains conflicting borough or ZIP entries. Check the address and try again." };

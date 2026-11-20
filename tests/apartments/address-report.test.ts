@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { addressMatches, createAddressResolver, removeUnitSuffix } from "../../lib/apartments/address";
+import { addressMatches, createAddressResolver } from "../../lib/apartments/address";
 import { reportingWindow } from "../../lib/apartments/calendar";
 import type { ApartmentAddress, Resolution } from "../../lib/apartments/contracts";
 import { readBedbugs, readViolations, selectFilings } from "../../lib/apartments/housing";
@@ -32,8 +32,8 @@ test("GeoSearch preserves Queens hyphens and house suffixes and ignores equally 
   assert.equal(match.address.street, "45-45A Center Boulevard");
   assert.equal(match.address.longitude, -73.956);
   assert.equal(match.address.latitude, 40.751);
-  assert.equal(removeUnitSuffix("1 United Nations Plaza"), "1 United Nations Plaza");
-  assert.equal(removeUnitSuffix("12 Test Street #4B"), "12 Test Street");
+  const plaza = feature("1", "UNITED NATIONS PLAZA", "Manhattan", "10017", "1037588");
+  assert.equal(addressMatches(collection(plaza), { street: "1 United Nations Plaza #4B", area: "Manhattan" }).status, "confirmed");
   assert.equal(addressMatches(collection(wrong), { street: "45-45A Center Blvd", area: "Queens" }).status, "unmatched");
 });
 
@@ -86,6 +86,28 @@ test("a cached ZIP-only match cannot resolve a conflicting borough and ZIP", asy
   assert.equal((await resolver({ street: "100 Broadway, Brooklyn", area: "10005" })).status, "unmatched");
   assert.equal((await resolver({ street: "100 Broadway, Brooklyn", area: "Manhattan" })).status, "invalid");
   assert.equal(lookups, 2);
+});
+
+test("stripping an explicit unit preserves borough and ZIP on either side of it", () => {
+  const brooklyn = feature("100", "BROADWAY", "Brooklyn", "11249", "3324734");
+  const manhattan = feature("100", "BROADWAY", "Manhattan", "10005", "1001024");
+  const candidates = collection(brooklyn, manhattan);
+  for (const street of [
+    "100 Broadway, Apt 4 Brooklyn NY ZIP",
+    "100 Broadway Apt. #4B Brooklyn N.Y. ZIP",
+    "100 Broadway # 4-B Brooklyn, NY ZIP",
+    "100 Broadway, Brooklyn Unit 4B NY ZIP",
+    "100 Broadway, Brooklyn NY ZIP Suite 4B",
+  ]) {
+    assert.equal(addressMatches(candidates, { street: street.replace("ZIP", "10005") }).status, "unmatched", street);
+    const matched = addressMatches(candidates, { street: street.replace("ZIP", "11249-1234") });
+    assert.equal(matched.status === "confirmed" && matched.address.street, "100 Broadway", street);
+    assert.equal(matched.status === "confirmed" && matched.address.borough, "Brooklyn", street);
+  }
+  assert.equal(addressMatches(candidates, { street: "100 Broadway, Apt 4 Brooklyn", area: "10005" }).status, "unmatched");
+  assert.equal(addressMatches(candidates, { street: "100 Broadway Unit 4 NY 11249", area: "Manhattan" }).status, "unmatched");
+  assert.equal(addressMatches(candidates, { street: "100 Broadway, Brooklyn Apt 4 Manhattan NY 10005" }).status, "invalid");
+  assert.equal(addressMatches(collection(brooklyn), { street: "100 Broadway, Apt # 12345" }).status, "choose");
 });
 
 test("malformed responses and placeholder IDs do not yield a fake building", async () => {
