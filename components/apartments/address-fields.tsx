@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Slot } from "@/lib/apartments/contracts";
 
-import type { AddressDraft, SlotState } from "./use-reports";
+import type { AddressDraft, SlotState } from "./report-state";
 
 const labels: Record<Slot, string> = { a: "Apartment A", b: "Apartment B", research: "Apartment address" };
 

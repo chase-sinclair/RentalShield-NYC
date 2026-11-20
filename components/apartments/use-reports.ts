@@ -1,106 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { z } from "zod";
 
 import { parseRent } from "@/lib/apartments/comparison";
+import { confirmedInput, type Apartment, type ReportResponse, type ReportSlot, type Slot } from "@/lib/apartments/contracts";
+
 import {
-  confirmedInput, maxRentCents, type AddressInput, type Apartment, type ReportResponse, type ReportSlot, type Slot,
-} from "@/lib/apartments/contracts";
-
-type Issue = Exclude<ReportSlot, { status: "confirmed" }>;
-export type AddressDraft = { street: string; area: string; rent: string };
-export type SlotState = {
-  draft: AddressDraft;
-  apartment?: Apartment;
-  issue?: Issue;
-  pending?: "replace" | "refresh";
-  refreshError?: string;
-  editing: boolean;
-};
-
-const savedSchema = z.object({
-  version: z.literal(1),
-  input: z.object({
-    street: z.string().trim().min(1).max(160),
-    area: z.string().trim().min(1).max(40),
-    selection: z.string().min(1).max(420).optional(),
-  }),
-  askingRentCents: z.number().int().nonnegative().max(maxRentCents).optional(),
-});
-
-type SavedBaseline = z.infer<typeof savedSchema>;
-type WorkspaceState = { entries: Record<Slot, SlotState>; baseline?: SavedBaseline; ready: boolean };
-type Work = { slot: Slot; input: AddressInput; rent?: number; purpose: "replace" | "refresh" };
-export const baselineKey = "rentalshield:apartments:baseline:v1";
-
-const emptyDraft: AddressDraft = { street: "", area: "", rent: "" };
-const emptySlot = (): SlotState => ({ draft: emptyDraft, editing: true });
-const initialState: WorkspaceState = { entries: { a: emptySlot(), b: emptySlot(), research: emptySlot() }, ready: false };
-const genericError = "The address report could not be loaded. Try again.";
-
-function readBaseline() {
-  try {
-    const stored = localStorage.getItem(baselineKey);
-    if (!stored) return undefined;
-    const parsed = savedSchema.safeParse(JSON.parse(stored));
-    return parsed.success ? parsed.data : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function draftFor(input: AddressInput, rent?: number): AddressDraft {
-  return { street: input.street, area: input.area ?? "", rent: rent === undefined ? "" : (rent / 100).toFixed(2) };
-}
-
-function saveApartment(apartment: Apartment): SavedBaseline {
-  return {
-    version: 1,
-    input: { ...confirmedInput(apartment.report.address), area: apartment.report.address.zip ?? apartment.report.address.borough },
-    askingRentCents: apartment.askingRentCents,
-  };
-}
-
-function withApartment(apartment: Apartment, slot: Slot): SlotState {
-  return {
-    apartment,
-    draft: draftFor(confirmedInput(apartment.report.address), apartment.askingRentCents),
-    editing: slot === "research",
-  };
-}
-
-function applyResults(state: WorkspaceState, work: Work[], results: ReportSlot[], current: (slot: Slot) => boolean) {
-  const entries = { ...state.entries };
-  let baseline = state.baseline;
-  for (const item of work) {
-    const { slot, purpose, rent } = item;
-    if (!current(slot)) continue;
-    const old = entries[slot];
-    const outcome = results.find((result) => result.slot === slot);
-    if (purpose === "refresh") {
-      if (outcome?.status === "confirmed" && old.apartment?.report.address.key === outcome.report.address.key) {
-        entries[slot] = { ...old, pending: undefined, refreshError: undefined, apartment: { ...old.apartment, report: outcome.report } };
-      } else {
-        entries[slot] = { ...old, pending: undefined, refreshError: "Could not refresh the existing address report. Try again." };
-      }
-      continue;
-    }
-    if (outcome?.status !== "confirmed") {
-      entries[slot] = { ...old, pending: undefined, issue: outcome ?? { slot, status: "unavailable", message: genericError } };
-      continue;
-    }
-    const apartment: Apartment = { report: outcome.report, askingRentCents: rent };
-    entries[slot] = withApartment(apartment, slot);
-    if (slot === "a") {
-      baseline = saveApartment(apartment);
-    } else if (slot === "research" && !baseline && !entries.a.pending && !entries.a.apartment) {
-      baseline = saveApartment(apartment);
-      entries.a = withApartment(apartment, "a");
-    }
-  }
-  return { ...state, entries, baseline };
-}
+  applyResults, baselineKey, draftFor, emptySlot, initialState, parseBaseline, receiveBaseline, saveApartment, withApartment,
+  type AddressDraft, type SlotState, type Work, type WorkspaceState,
+} from "./report-state";
 
 export function needsRetry(apartment?: Apartment) {
   if (!apartment) return false;
@@ -111,29 +19,72 @@ export function needsRetry(apartment?: Apartment) {
 
 export function useReports(openCompare: boolean) {
   const [state, setState] = useState(initialState);
+  const workspace = useRef(initialState);
+  const mounted = useRef(false);
+  const canPersist = useRef(true);
   const requestSequence = useRef<Record<Slot, number>>({ a: 0, b: 0, research: 0 });
   const restoreAttempted = useRef(false);
   const inFlight = useRef(new Set<AbortController>());
 
-  useEffect(() => {
-    const baseline = readBaseline();
-    setState((previous) => {
-      const a = baseline ? { ...previous.entries.a, draft: draftFor(baseline.input, baseline.askingRentCents) } : previous.entries.a;
-      return { ...previous, entries: { ...previous.entries, a }, baseline, ready: true };
-    });
-    const controllers = inFlight.current;
-    return () => controllers.forEach((request) => request.abort());
+  const updateWorkspace = useCallback((update: (previous: WorkspaceState) => WorkspaceState) => {
+    if (!mounted.current) return;
+    const next = update(workspace.current);
+    if (next === workspace.current) return;
+    workspace.current = next;
+    setState(next);
   }, []);
 
-  useEffect(() => {
-    if (!state.ready) return;
+  const syncBaseline = useCallback((previous: WorkspaceState) => {
+    if (!canPersist.current) return previous;
     try {
-      if (state.baseline) localStorage.setItem(baselineKey, JSON.stringify(state.baseline));
-      else localStorage.removeItem(baselineKey);
+      const next = receiveBaseline(previous, parseBaseline(localStorage.getItem(baselineKey)));
+      if (next !== previous) {
+        ++requestSequence.current.a;
+        restoreAttempted.current = false;
+      }
+      return next;
     } catch {
-      // The in-memory baseline still works when browser storage is blocked.
+      canPersist.current = false;
+      return previous;
     }
-  }, [state.baseline, state.ready]);
+  }, []);
+
+  const updateBaseline = useCallback((update: (previous: WorkspaceState) => WorkspaceState) => {
+    const commit = () => updateWorkspace((previous) => {
+      // Read storage even if the browser has not delivered the other tab's storage event yet.
+      const current = syncBaseline(previous);
+      const next = update(current);
+      if (canPersist.current && next.baseline !== current.baseline) {
+        try {
+          if (next.baseline) localStorage.setItem(baselineKey, JSON.stringify(next.baseline));
+          else localStorage.removeItem(baselineKey);
+        } catch {
+          canPersist.current = false;
+        }
+      }
+      return next;
+    });
+    if (canPersist.current && navigator.locks) {
+      void navigator.locks.request(baselineKey, commit).catch(() => commit());
+    } else {
+      commit();
+    }
+  }, [syncBaseline, updateWorkspace]);
+
+  useEffect(() => {
+    mounted.current = true;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === baselineKey || event.key === null) updateWorkspace(syncBaseline);
+    };
+    window.addEventListener("storage", onStorage);
+    updateWorkspace((previous) => ({ ...syncBaseline(previous), ready: true }));
+    const controllers = inFlight.current;
+    return () => {
+      mounted.current = false;
+      window.removeEventListener("storage", onStorage);
+      controllers.forEach((request) => request.abort());
+    };
+  }, [syncBaseline, updateWorkspace]);
 
   const run = useCallback(async (work: Work[]) => {
     if (!work.length) return;
@@ -141,12 +92,12 @@ export function useReports(openCompare: boolean) {
     const controller = new AbortController();
     inFlight.current.add(controller);
     const current = (slot: Slot) => tokens.get(slot) === requestSequence.current[slot];
-    setState((previous) => {
+    updateWorkspace((previous) => {
       const entries = { ...previous.entries };
       for (const { slot, purpose } of work) {
         entries[slot] = {
-          ...entries[slot], pending: purpose, refreshError: undefined,
-          issue: purpose === "replace" ? undefined : entries[slot].issue,
+          ...entries[slot], pending: purpose === "refresh" ? "refresh" : "replace", refreshError: undefined,
+          issue: purpose === "refresh" ? entries[slot].issue : undefined,
         };
       }
       return { ...previous, entries };
@@ -165,17 +116,18 @@ export function useReports(openCompare: boolean) {
     } finally {
       inFlight.current.delete(controller);
     }
-    setState((previous) => applyResults(previous, work, results, current));
-  }, []);
+    if (!controller.signal.aborted) updateBaseline((previous) => applyResults(previous, work, results, current));
+  }, [updateBaseline, updateWorkspace]);
 
   useEffect(() => {
-    if (!openCompare || !state.ready || !state.baseline || state.entries.a.apartment || restoreAttempted.current) return;
+    const { ready, baseline, entries } = workspace.current;
+    if (!openCompare || !ready || !baseline || entries.a.apartment || entries.a.pending || restoreAttempted.current) return;
     restoreAttempted.current = true;
-    void run([{ slot: "a", purpose: "replace", input: state.baseline.input, rent: state.baseline.askingRentCents }]);
-  }, [openCompare, state.ready, state.baseline, state.entries.a.apartment, run]);
+    void run([{ slot: "a", purpose: "restore", input: baseline.input, rent: baseline.askingRentCents }]);
+  }, [openCompare, state.ready, state.baseline, state.entries.a.apartment, state.entries.a.pending, run]);
 
   function updateSlot(slot: Slot, update: (entry: SlotState) => SlotState) {
-    setState((previous) => ({
+    updateWorkspace((previous) => ({
       ...previous,
       entries: { ...previous.entries, [slot]: update(previous.entries[slot]) },
     }));
@@ -197,7 +149,7 @@ export function useReports(openCompare: boolean) {
 
   function refresh(slots: Slot[]) {
     const work = slots.flatMap((slot): Work[] => {
-      const entry = state.entries[slot];
+      const entry = workspace.current.entries[slot];
       return entry.apartment && !entry.pending
         ? [{ slot, purpose: "refresh", input: confirmedInput(entry.apartment.report.address) }] : [];
     });
@@ -205,8 +157,9 @@ export function useReports(openCompare: boolean) {
   }
 
   function submit(slots: Slot[], selection?: string) {
+    const { entries, baseline } = workspace.current;
     const work = slots.flatMap((slot): Work[] => {
-      const { draft, pending, editing } = state.entries[slot];
+      const { draft, pending, editing } = entries[slot];
       if (!editing || pending === "replace") return [];
       const rent = parseRent(draft.rent);
       const message = !draft.street.trim() ? "Enter a street address."
@@ -215,11 +168,14 @@ export function useReports(openCompare: boolean) {
         updateSlot(slot, (entry) => ({ ...entry, issue: { slot, status: "invalid", message } }));
         return [];
       }
-      return [{ slot, input: { street: draft.street, area: draft.area || undefined, selection }, purpose: "replace", rent }];
+      return [{
+        slot, input: { street: draft.street, area: draft.area || undefined, selection }, purpose: "replace", rent,
+        seedBaseline: slot === "research" && !baseline,
+      }];
     });
     if (work.length === 1 && work[0].slot !== "research") {
       const slot = work[0].slot === "a" ? "b" : "a";
-      const other = state.entries[slot];
+      const other = entries[slot];
       if (other.apartment && !other.pending) {
         work.push({ slot, input: confirmedInput(other.apartment.report.address), purpose: "refresh" });
       }
@@ -228,20 +184,19 @@ export function useReports(openCompare: boolean) {
   }
 
   function clear() {
-    restoreAttempted.current = true;
-    ++requestSequence.current.a;
-    setState((previous) => ({
-      ...previous, baseline: undefined, entries: { ...previous.entries, a: emptySlot() },
-    }));
+    updateBaseline((previous) => {
+      ++requestSequence.current.a;
+      return { ...previous, baseline: undefined, entries: { ...previous.entries, a: emptySlot() } };
+    });
   }
 
   function swap() {
-    ++requestSequence.current.a;
-    ++requestSequence.current.b;
-    setState((previous) => {
+    updateBaseline((previous) => {
       const a = previous.entries.a.apartment;
       const b = previous.entries.b.apartment;
       if (!a || !b) return previous;
+      ++requestSequence.current.a;
+      ++requestSequence.current.b;
       return {
         ...previous,
         baseline: saveApartment(b),
