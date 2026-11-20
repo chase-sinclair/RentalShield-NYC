@@ -145,7 +145,10 @@ export function ComparisonReport({ a, b, destinations, assumptions, routes, work
         <ul>
           {summary.map(({ category, text }) => {
             const Icon = summaryIcons[category];
-            return <li key={category}><Icon aria-hidden="true" /><span>{text}</span></li>;
+            return <li key={category}>
+              <Icon aria-hidden="true" />
+              <span>{text}{category === "commute" && provenance === "demo" && <small className="apt-note ml-2 font-semibold">Sample estimate</small>}</span>
+            </li>;
           })}
         </ul>
       </section>

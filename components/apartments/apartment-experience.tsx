@@ -5,24 +5,29 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowLeftRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { Slot } from "@/lib/apartments/contracts";
+import { routeOriginKey, type Slot } from "@/lib/apartments/contracts";
 
 import { AddressFields } from "./address-fields";
 import { ApartmentStrip } from "./apartment-strip";
 import { ComparisonReport } from "./comparison-report";
+import { CommuteForm, ResearchCommutes } from "./commute-controls";
 import { DemoWorkspace } from "./demo-workspace";
 import { HomeChoices } from "./home-choices";
 import { ResearchReport } from "./research-report";
+import { useCommutes } from "./use-commutes";
 import { needsRetry, useReports } from "./use-reports";
 
 export type ApartmentView = "home" | "research" | "compare" | "demo";
 
 const compareSlots = ["a", "b"] as const;
 
-export function ApartmentExperience({ view }: { view: ApartmentView }) {
+export function ApartmentExperience({ view, routingEnabled }: { view: ApartmentView; routingEnabled: boolean }) {
   const router = useRouter();
   const reports = useReports(view === "compare");
   const { a, b, research } = reports.entries;
+  const originKeys = [a.apartment, b.apartment, research.apartment].flatMap((apartment) =>
+    apartment ? [routeOriginKey(apartment.report.address)] : []).sort();
+  const commutes = useCommutes(JSON.stringify(originKeys));
 
   if (view === "home") return <HomeChoices />;
   if (view === "demo") return <DemoWorkspace />;
@@ -42,6 +47,10 @@ export function ApartmentExperience({ view }: { view: ApartmentView }) {
   const compareNeedsRefresh = needsRetry(a.apartment) || needsRetry(b.apartment) ||
     a.refreshError || b.refreshError ||
     (a.apartment && b.apartment && a.apartment.report.window.asOf !== b.apartment.report.window.asOf);
+  const origins = compareSlots.flatMap((slot) => {
+    const apartment = reports.entries[slot].apartment;
+    return apartment ? [{ slot, apartment }] : [];
+  });
 
   return (
     <div className="apartment-app">
@@ -69,7 +78,8 @@ export function ApartmentExperience({ view }: { view: ApartmentView }) {
               apartment={research.apartment} saveRent={reports.setResearchRent}
               openCompare={() => router.push("/?tab=compare")}
               refresh={needsRetry(research.apartment) || research.refreshError ? () => reports.refresh(["research"]) : undefined}
-              refreshing={research.pending === "refresh"} />}
+              refreshing={research.pending === "refresh"}
+              commute={<ResearchCommutes commutes={commutes} apartment={research.apartment} enabled={routingEnabled} />} />}
           </>
         ) : (
           <>
@@ -112,7 +122,11 @@ export function ApartmentExperience({ view }: { view: ApartmentView }) {
               {a.refreshError || b.refreshError}
             </div>
             {(a.apartment || b.apartment) && <ComparisonReport a={a.apartment} b={b.apartment}
-              destinations={[]} assumptions={{ mode: "transit" }} routes={[]} workdays={5} />}
+              destinations={commutes.destinations} assumptions={commutes.assumptions} routes={commutes.results} workdays={commutes.workdays}
+              controls={<details className="apt-commute-details">
+                <summary>Set commute destinations</summary>
+                <CommuteForm commutes={commutes} origins={origins} enabled={routingEnabled} />
+              </details>} />}
           </>
         )}
       </div>

@@ -21,3 +21,9 @@ On November 20, 2026, `node scripts/smoke-nyc.mjs` confirmed all five borough ex
 The lot-wide groups included neighboring buildings. App counts and selected filings matched the exact-BIN rows for both apartments. The No. 2 building ID was corroborated using its historical violations. The zero in the open violations query came from a successful empty exact-BIN result. The filing rows included a late Riverside Drive submission and a later filing that superseded older No. 1 Stuyvesant Oval copies. Counts are a dated observation. Automated assertions use synthetic rows.
 
 The browser confirmed A during an ambiguous B lookup for `100 Broadway`, displayed the candidate choices in B, and retained both confirmed Compare apartments while researching a different address. The right-arrow and Enter keys opened Block from Building & Rent.
+
+## Google Routes
+
+- **Mock verification passed.** Tests cover shared waypoints and departure instants, Transit and Walking payloads, validation of NYC origins, an outside-city destination, partial results, disabled routing, no route, quota errors, timeouts, redaction, duplicate submissions, and the six-call maximum.
+- **Live verification is pending.** Use a restricted, billing-enabled test key in a private environment to check actual Transit and Walking estimates, Hoboken coverage, attribution, quotas, and usage.
+- **Public activation is pending.** The owner supplies the launch quota budget. Apply a shared request limit, provider quotas, and monitoring, then publish the required Terms of Use and Privacy Policy before enabling the feature in public.

@@ -4,7 +4,7 @@ import type { PublicEnv, ServerEnv } from "@/types";
 
 const envSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().default("RentalShield NYC"),
-  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3006"),
   AWS_REGION: z.string().default("us-east-1"),
   BEDROCK_MODEL_ID: z.string().default("anthropic.claude-3-7-sonnet-20250219-v1:0"),
   BEDROCK_FALLBACK_MODEL_ID: z.string().optional(),

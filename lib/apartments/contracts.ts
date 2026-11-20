@@ -12,6 +12,12 @@ export const destinationLabels: Record<DestinationId, string> = {
   friends: "Friends",
 };
 
+export function isDestinationAddress(value: string) {
+  const text = value.trim();
+  return /^\d[\w-]*(?:\s+\d+\/\d+)?\s+\S/.test(text) &&
+    (/\b\d{5}(?:-\d{4})?$/.test(text) || /\s[A-Z]{2}\.?$/i.test(text) || text.split(",").filter((part) => part.trim()).length >= 3);
+}
+
 export type Provenance = "live" | "demo";
 
 export interface DateWindow {

@@ -1,8 +1,12 @@
 import { formatDeparture } from "@/lib/apartments/calendar";
 import { formatDuration } from "@/lib/apartments/comparison";
-import { addressLabel, type Apartment, type Destination, type RouteAssumptions, type RouteResult } from "@/lib/apartments/contracts";
+import { addressLabel, isDestinationAddress, type Apartment, type Destination, type RouteAssumptions, type RouteResult } from "@/lib/apartments/contracts";
 
 import { Missing } from "./evidence";
+
+const routeTimes = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short",
+});
 
 export function Assumptions({ assumptions }: { assumptions: RouteAssumptions }) {
   return (
@@ -30,8 +34,9 @@ export function RouteValue({ route, apartment, destination, assumptions }: {
           <p className="apt-note apt-google" translate="no">Google Maps</p>
         )}
         {!!route.lines?.length && <p className="apt-note">{route.lines.join(" · ")}</p>}
+        {route.retrievedAt && <p className="apt-note">Estimated {routeTimes.format(new Date(route.retrievedAt))} (New York time)</p>}
         {route.provenance === "live" && assumptions.mode === "walking" && (
-          <p className="apt-note">Walking routes are in beta and might be missing sidewalks or pedestrian paths.</p>
+          <p className="apt-note">Walking routes are in beta and might be missing clear sidewalks or pedestrian paths.</p>
         )}
       </div>
     );
@@ -39,6 +44,7 @@ export function RouteValue({ route, apartment, destination, assumptions }: {
 
   if (!apartment) return <Missing label="Apartment needed" />;
   if (apartment.report.provenance === "demo") return <Missing />;
+  if (!isDestinationAddress(destination.address)) return <Missing label="Complete the destination address" />;
   const params = new URLSearchParams({
     api: "1",
     origin: addressLabel(apartment.report.address),
