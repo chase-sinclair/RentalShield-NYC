@@ -6,9 +6,12 @@ import { SiteHeader } from "@/components/site-header";
 import { publicEnv } from "@/lib/config/env";
 
 export const metadata: Metadata = {
-  title: `${publicEnv.appName} | Manhattan Rental Scam Screening`,
+  title: {
+    default: `${publicEnv.appName} | NYC apartment research and comparison`,
+    template: `%s | ${publicEnv.appName}`,
+  },
   description:
-    "RentalShield NYC is a trust-oriented Manhattan MVP that helps renters assess listing scam risk using structured evidence.",
+    "Research NYC building and block records, compare asking rents, and see how apartments fit your commute.",
 };
 
 export default function RootLayout({
@@ -19,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <SiteHeader />
+        <SiteHeader appName={publicEnv.appName} />
         <main>{children}</main>
       </body>
     </html>

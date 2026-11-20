@@ -1,98 +1,46 @@
 # RentalShield NYC
 
-RentalShield NYC is a production-minded MVP for Manhattan-focused rental scam screening. The app now supports a real request flow, explainable scoring, screenshot upload validation, Bedrock-ready orchestration, optional Supabase persistence, and a mobile-first trust-oriented UI.
+RentalShield NYC helps renters decide which NYC apartments to tour.
 
-## Stack
+- **Research an Address** looks up a confirmed address in any of the five boroughs and shows housing and block records.
+- **Compare Apartments** takes two addresses directly or restores a saved Apartment A. It compares asking rent, one-way travel, and public records using the same assumptions for both apartments.
+- **Try a sample comparison** opens `/?demo=1&tab=compare` with fictional listings, synthetic records, and illustrative Transit and Walking estimates. It runs without upstream calls or API keys.
+- **Scam checker** remains at `/analyze`. It accepts listing links, messages, and screenshots and links to the legacy sample at `/results/mock-manhattan-demo`.
 
-- Next.js 15 App Router
-- React 19 + strict TypeScript
-- Tailwind CSS
-- shadcn/ui-style component setup
-- Supabase client scaffolding
-- AWS Bedrock client scaffolding
-- MCP-compatible internal tool orchestration structure
+## Local setup
 
-## What is included
-
-- App Router pages for home, analyze, results, and disclaimer
-- Shared layout and sticky navigation
-- Reusable UI components for upload, score display, factor explanations, verified facts, and next steps
-- Thin API routes with service-based orchestration
-- Live request flow with graceful fallback services where integrations are incomplete
-- Optional Supabase persistence and server-backed result retrieval
-- Environment variable parsing and setup helpers
-- Supabase and Bedrock client wrappers
-- Manhattan-only scope messaging and disclaimer language
-
-## Project structure
-
-```text
-app/
-components/
-lib/
-services/
-types/
-public/
-```
-
-## Setup
-
-1. Install dependencies:
+Use Node.js 22 or later. The release checks were run with Node.js 24.
 
 ```bash
-npm install
-```
-
-2. Create your local environment file:
-
-```bash
-cp .env.example .env.local
-```
-
-3. Fill in `.env.local` with the keys you want to enable first. The app degrades gracefully when some integrations are unset, but Bedrock, Google Maps, RentCast, and Supabase each improve coverage when configured.
-
-## Development commands
-
-```bash
+npm ci
 npm run dev
 ```
 
-```bash
-npm run lint
-```
+Open [RentalShield on port 3006](http://localhost:3006). For a local production build, use `npm run build` followed by `npm run start -- -p 3006`.
+
+The sample needs no environment file. For optional services, copy `.env.example` to a new `.env.local` and add server settings there. The five-borough address and records flows use public NYC Planning GeoSearch and NYC Open Data. `NYC_OPEN_DATA_APP_TOKEN` is optional and stays on the server.
+
+Only the confirmed address for A and its optional asking rent are saved in versioned browser storage. B and shared destinations stay in the open app session. Clear baseline removes A from browser storage. Public metrics show the data source, reporting window or retrieval date, and availability.
+
+## Optional Google Routes
+
+`GOOGLE_ROUTES_ENABLED` defaults to `false`. When disabled, the reports and comparison remain usable and entered routes can be opened in Google Maps. `GOOGLE_ROUTES_API_KEY` is independent of the legacy `GOOGLE_MAPS_API_KEY` geocoding setting.
+
+For a private smoke test, enable billing and the Routes API in the test Google Cloud project, restrict the key to Routes API and to the server where hosting supports that restriction, and add the key and `GOOGLE_ROUTES_ENABLED=true` to the private test environment. Restart the app after changing settings. Run Transit and Walking with two confirmed NYC origins and shared public destinations, including a supported outside-city pair such as Hoboken. Verify attribution, the walking notice, and usage counts. Turn the feature off by setting `GOOGLE_ROUTES_ENABLED=false` and restarting or redeploying.
+
+Before public activation, publish Terms of Use and a Privacy Policy describing the address transfer to Google, apply a deployment-wide request limit to `POST /api/apartments/commutes`, and set Google Cloud daily and per-minute quotas from the owner's launch budget. Configure usage monitoring, quota alerts, and billing notifications. The adapter coalesces in-flight duplicates and caps each submission at six calls. Its per-session and per-instance limits supplement the shared deployment limit. Route data stays transient in memory and the API responses use `Cache-Control: private, no-store`. [Routes policies](https://developers.google.com/maps/documentation/routes/policies) · [Routes billing and quotas](https://developers.google.com/maps/documentation/routes/usage-and-billing)
+
+## Scam checker
+
+The original analysis, screenshot staging, and result routes support the Manhattan-focused scam checker. With legacy provider settings absent, the checker uses fallback analysis and the current browser session can reopen a generated result. Optional Bedrock, Google Geocoding, and RentCast settings enable provider-backed checks. Optional Supabase persistence requires the existing `rental_analyses` table and server credentials. Screenshot bytes are staged temporarily in the server process. Include a staging-to-analysis smoke test on the intended host if it runs the endpoints in separate instances.
+
+## Verification
 
 ```bash
+npm run lint
+npm run typecheck
+npm test
 npm run build
 ```
 
-```bash
-npm run typecheck
-```
-
-## Environment notes
-
-- `BEDROCK_MODEL_ID` controls the active Bedrock model for extraction and reasoning.
-- `BEDROCK_FALLBACK_MODEL_ID` is available for later evaluation and model comparison work.
-- `SUPABASE_SERVICE_ROLE_KEY`, AWS credentials, Google Maps, and RentCast keys must stay server-side.
-- File upload limits are configured through `MAX_UPLOAD_FILE_SIZE_MB` and `MAX_UPLOAD_FILE_COUNT`.
-
-## Current MVP constraints
-
-- Manhattan-only V1 UX and messaging
-- No auth
-- No saved user history UI
-- OCR still falls back to mock extraction text when Bedrock multimodal support is unavailable
-- Broker verification uses a simple lookup strategy and may need a stronger NY license data source
-- Persistence expects a Supabase table named `rental_analyses`
-
-## Suggested next implementation steps
-
-1. Wire `app/api/upload/route.ts` to Supabase Storage or a signed upload flow.
-2. Expand screenshot OCR into true multimodal Bedrock extraction using stored image assets instead of metadata-only fallback behavior.
-3. Create and migrate the `rental_analyses` Supabase table for durable result retrieval across sessions.
-4. Strengthen broker verification with a more robust NY licensing/provider strategy and explicit normalization rules.
-5. Add accessibility QA, mobile QA, and a final deployment checklist for Vercel + Supabase.
-
-## Disclaimer
-
-RentalShield NYC provides an informational risk estimate based on the evidence a user submits. It does not provide legal advice, guarantee that a listing is legitimate, or replace independent verification.
+With the local app running on port 3006 in an isolated environment without legacy credentials, use `node scripts/smoke-legacy.mjs` for the scam checker and `node scripts/smoke-nyc.mjs` for the live NYC address and HPD joins. `RENTALSHIELD_SMOKE_URL` overrides the local smoke-test URL. Google Routes adapter tests use mocked responses. See the [V1 verification record](docs/v1-verification.md) for walkthroughs, screenshots, and pending live checks.

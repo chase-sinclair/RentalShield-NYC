@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+
 import { AnalysisForm } from "@/components/analysis-form";
 import { LoadingAnalysis } from "@/components/loading-analysis";
 import { SectionCard } from "@/components/section-card";
+
+export const metadata: Metadata = { title: "Scam checker" };
 
 export default function AnalyzePage() {
   return (
@@ -13,6 +18,9 @@ export default function AnalyzePage() {
         <AnalysisForm />
       </SectionCard>
 
+      <Link className="text-sm font-semibold underline underline-offset-4" href="/results/mock-manhattan-demo">
+        View a sample scam report
+      </Link>
       <LoadingAnalysis summary="Submitting this form sends a real analysis request, optionally persists the result, and routes to a result page that can load from Supabase or the current browser session." />
     </div>
   );

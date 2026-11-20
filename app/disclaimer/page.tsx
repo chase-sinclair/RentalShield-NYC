@@ -14,8 +14,8 @@ export default function DisclaimerPage() {
 
       <SectionCard
         eyebrow="Scope"
-        title="Manhattan-only V1"
-        description="If an address resolves outside Manhattan, the app should continue with message-based checks while explaining that property-specific verification may be limited."
+        title="Scam checker coverage"
+        description="The scam checker is optimized for Manhattan. Message-based checks are available for listings elsewhere, where property-specific verification may be limited."
       >
         <div className="space-y-3 text-sm leading-7 text-muted-foreground">
           <p>
