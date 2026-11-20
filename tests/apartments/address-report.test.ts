@@ -53,6 +53,41 @@ test("listing ambiguity is per verified BIN, including aliases, same-zip context
   assert.equal(addressMatches(collection(...aliases), { street: "100 Broadway", area: "10005" }).status, "unmatched");
 });
 
+test("GeoSearch requires all pasted and explicit borough and ZIP hints to match", () => {
+  const brooklyn = feature("100", "BROADWAY", "Brooklyn", "11249", "3324734");
+  const manhattan = feature("100", "BROADWAY", "Manhattan", "10005", "1001024");
+  const candidates = collection(brooklyn, manhattan);
+
+  for (const input of [
+    { street: "100 Broadway, Brooklyn, NY 10005" },
+    { street: "100 Broadway, Brooklyn NY 10005" },
+    { street: "100 Broadway, Brooklyn", area: "10005" },
+    { street: "100 Broadway, NY 10005", area: "Brooklyn" },
+    { street: "100 Broadway, Brooklyn", area: "10005", selection: "100|BROADWAY|Manhattan|1001024" },
+  ]) {
+    assert.equal(addressMatches(candidates, input).status, "unmatched", JSON.stringify(input));
+  }
+  assert.equal(addressMatches(candidates, { street: "100 Broadway, Brooklyn", area: "Manhattan" }).status, "invalid");
+  assert.equal(addressMatches(candidates, { street: "100 Broadway, 11249, 10005" }).status, "invalid");
+
+  const confirmed = addressMatches(candidates, { street: "100 Broadway, Apt 12345, Brooklyn NY 11249-1234", area: "11249" });
+  assert.equal(confirmed.status === "confirmed" && confirmed.address.borough, "Brooklyn");
+  const noHint = addressMatches(collection(brooklyn), { street: "100 Broadway, Apt 12345" });
+  assert.equal(noHint.status, "choose");
+});
+
+test("a cached ZIP-only match cannot resolve a conflicting borough and ZIP", async () => {
+  let lookups = 0;
+  const resolver = createAddressResolver(async () => {
+    lookups++;
+    return Response.json(collection(feature("100", "BROADWAY", "Manhattan", "10005", "1001024")));
+  });
+  assert.equal((await resolver({ street: "100 Broadway", area: "10005" })).status, "confirmed");
+  assert.equal((await resolver({ street: "100 Broadway, Brooklyn", area: "10005" })).status, "unmatched");
+  assert.equal((await resolver({ street: "100 Broadway, Brooklyn", area: "Manhattan" })).status, "invalid");
+  assert.equal(lookups, 2);
+});
+
 test("malformed responses and placeholder IDs do not yield a fake building", async () => {
   const unresolved = feature("170", "ASHLAND PLACE", "Brooklyn", "11217", "3000000", "3020950026");
   const match = addressMatches(collection(unresolved, { properties: { layer: "street" } }), { street: "170 Ashland Pl", area: "11217" });

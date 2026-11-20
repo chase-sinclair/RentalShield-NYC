@@ -35,7 +35,7 @@ export const addressInputSchema = z.object({
 });
 
 export function removeUnitSuffix(address: string) {
-  return address.trim().replace(/(?:\s*,\s*|\s+)(?:(?:APT\.?|APARTMENT|UNIT|SUITE|STE\.?|FLOOR|FL\.?)(?=\s|#)\s*[#\w-].*|#\s*[\w-].*)$/i, "").trim();
+  return address.trim().replace(/(?:^|\s*,\s*|\s+)(?:(?:APT\.?|APARTMENT|UNIT|SUITE|STE\.?|FLOOR|FL\.?)(?=\s|#)\s*[#\w-].*|#\s*[\w-].*)$/i, "").trim();
 }
 
 function normalizedText(value: string) {
@@ -68,22 +68,40 @@ function boroughFrom(text: string) {
   return boroughs.find((borough) => normalizedText(borough) === normalizedText(text).replace(/^THE BRONX$/, "BRONX"));
 }
 
-function parseArea(text: string) {
-  const zip = /^(\d{5})(?:-\d{4})?$/.exec(text)?.[1];
-  const borough = boroughFrom(text);
-  return zip ? { zip } : borough ? { borough } : null;
+type AreaHints = { zip?: string; borough?: Borough };
+const zipAtEnd = /(?:^|\s)(\d{5})(?:-\d{4})?$/;
+
+function parseArea(text: string): AreaHints | null {
+  const value = text.trim();
+  const zip = zipAtEnd.exec(value);
+  const borough = boroughFrom(value);
+  if (zip?.index === 0) return { zip: zip[1] };
+  return borough ? { borough } : null;
+}
+
+function pastedArea(part: string): AreaHints {
+  const text = removeUnitSuffix(part);
+  const zip = zipAtEnd.exec(text);
+  const locality = (zip ? text.slice(0, zip.index) : text).replace(/\s+(?:N\.?Y\.?|New York)$/i, "");
+  return { zip: zip?.[1], borough: boroughFrom(locality) };
 }
 
 function parseAddress(input: AddressInput) {
   const [first, ...rest] = input.street.split(",");
-  // A pasted address can include a unit and locality after the street.
-  const areaFromStreet = rest.map((part) => part.trim()).flatMap((part) => {
-    const zip = /\b\d{5}(?:-\d{4})?$/.exec(part)?.[0];
-    return zip ? [zip, part] : [part];
-  }).map(parseArea).find(Boolean);
-  const area = input.area ? parseArea(input.area) : areaFromStreet;
   const houseStreet = splitHouse(removeUnitSuffix(first));
-  return { houseStreet, area, invalidArea: Boolean(input.area && !area) };
+  const explicit = parseArea(input.area ?? "");
+  if (input.area && !explicit) return { houseStreet, error: "Enter an NYC borough or a five-digit ZIP." };
+
+  const area: AreaHints = {};
+  for (const hint of [...rest.map(pastedArea), explicit]) {
+    if (!hint) continue;
+    if ((area.zip && hint.zip && area.zip !== hint.zip) || (area.borough && hint.borough && area.borough !== hint.borough)) {
+      return { houseStreet, error: "The address contains conflicting borough or ZIP entries. Check the address and try again." };
+    }
+    area.zip ??= hint.zip;
+    area.borough ??= hint.borough;
+  }
+  return { houseStreet, area: area.zip || area.borough ? area : undefined };
 }
 
 export function verifiedBin(value: unknown) {
@@ -102,14 +120,14 @@ function titleCase(value: string) {
   return value.toLowerCase().replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
-function sameArea(address: ApartmentAddress, area?: { zip?: string; borough?: Borough } | null) {
+function sameArea(address: ApartmentAddress, area?: AreaHints) {
   return (!area?.zip || area.zip === address.zip) && (!area?.borough || area.borough === address.borough);
 }
 
 export function addressMatches(payload: unknown, input: AddressInput): Resolution {
   const parsed = parseAddress(input);
   if (!parsed.houseStreet) return { status: "invalid", message: "Enter a house number and street name." };
-  if (parsed.invalidArea) return { status: "invalid", message: "Enter an NYC borough or a five-digit ZIP." };
+  if (parsed.error) return { status: "invalid", message: parsed.error };
   const response = responseSchema.safeParse(payload);
   if (!response.success) return { status: "unavailable", message: availabilityMessage };
 
@@ -173,9 +191,13 @@ export function addressMatches(payload: unknown, input: AddressInput): Resolutio
     return { status: "confirmed", address: deduped[0] };
   }
   if (!deduped.length) {
-    return compatibleMalformed
-      ? { status: "unavailable", message: availabilityMessage }
-      : { status: "unmatched", message: unmatchedMessage };
+    if (compatibleMalformed) return { status: "unavailable", message: availabilityMessage };
+    return {
+      status: "unmatched",
+      message: parsed.area?.borough && parsed.area.zip
+        ? "Check that the borough and ZIP both match the street address."
+        : unmatchedMessage,
+    };
   }
   return {
     status: "choose",
@@ -187,10 +209,11 @@ export function addressMatches(payload: unknown, input: AddressInput): Resolutio
 export function createAddressResolver(fetcher: typeof fetch = fetch) {
   const cachedAddress = publicCache<Resolution>(addressCacheMs, 256);
   return async function resolveAddress(input: AddressInput): Promise<Resolution> {
-    const { houseStreet, area, invalidArea } = parseAddress(input);
-    if (invalidArea || !houseStreet) return addressMatches({ type: "FeatureCollection", features: [] }, input);
-    const query = [houseStreet.house + " " + houseStreet.street, area?.borough || area?.zip].filter(Boolean).join(", ");
-    return cachedAddress(JSON.stringify(["geosearch-v2", query, input.selection]), async () => {
+    const { houseStreet, area, error } = parseAddress(input);
+    if (error || !houseStreet) return addressMatches({ type: "FeatureCollection", features: [] }, input);
+    const street = houseStreet.house + " " + houseStreet.street;
+    const query = [street, area?.zip ?? area?.borough].filter(Boolean).join(", ");
+    return cachedAddress(JSON.stringify(["geosearch-v2", street, area?.borough, area?.zip, input.selection]), async () => {
       const endpoint = new URL("https://geosearch.planninglabs.nyc/v2/search");
       endpoint.search = new URLSearchParams({ text: query, size: "14" }).toString();
       try {
