@@ -3,6 +3,7 @@ import { ArrowRight, Building2, MapPinned, ShieldCheck, Sparkles } from "lucide-
 
 import { ReportPreview } from "@/components/report-preview";
 import { Card } from "@/components/ui/card";
+import { DemoWorkspace } from "@/components/apartments/demo-workspace";
 
 const featureCards = [
   {
@@ -22,7 +23,11 @@ const featureCards = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage({ searchParams }: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  if ((await searchParams).demo === "1") return <DemoWorkspace />;
+
   return (
     <div className="pb-16">
       <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-10 pt-10 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:pt-16">
@@ -56,6 +61,9 @@ export default function HomePage() {
               View Sample Result
             </Link>
           </div>
+          <Link className="font-semibold underline underline-offset-4" href="/?demo=1&tab=compare">
+            Try a sample comparison
+          </Link>
           <div className="grid gap-4 sm:grid-cols-3">
             {featureCards.map((card) => (
               <Card className="p-5" key={card.title}>
