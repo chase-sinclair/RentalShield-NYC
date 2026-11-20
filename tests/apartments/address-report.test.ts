@@ -110,6 +110,40 @@ test("stripping an explicit unit preserves borough and ZIP on either side of it"
   assert.equal(addressMatches(collection(brooklyn), { street: "100 Broadway, Apt # 12345" }).status, "choose");
 });
 
+test("pasted locality punctuation and country suffixes preserve borough and ZIP constraints", () => {
+  const brooklyn = feature("100", "BROADWAY", "Brooklyn", "11249", "3324734");
+  const manhattan = feature("100", "BROADWAY", "Manhattan", "10005", "1001024");
+  const candidates = collection(brooklyn, manhattan);
+  for (const suffix of [".", ";", " USA", " U.S.", " U.S.A.", ". United States of America.", ", USA"]) {
+    for (const zip of ["11249", "11249-1234"]) {
+      const street = `100 Broadway, Apt 4B Brooklyn NY ${zip}${suffix}`;
+      assert.equal(addressMatches(candidates, { street, area: "Manhattan" }).status, "invalid", street);
+      assert.equal(addressMatches(candidates, { street, area: "10005" }).status, "invalid", street);
+      assert.equal(addressMatches(candidates, { street, area: "11249" }).status, "confirmed", street);
+      const confirmed = addressMatches(candidates, { street });
+      assert.equal(confirmed.status === "confirmed" && confirmed.address.borough, "Brooklyn", street);
+    }
+  }
+  assert.equal(addressMatches(candidates, { street: "100 Broadway, Apt 4B Brooklyn. USA", area: "Manhattan" }).status, "invalid");
+  assert.equal(addressMatches(candidates, { street: "100 Broadway, Apt 11249, USA." }).status, "choose");
+  assert.equal(addressMatches(candidates, { street: "100 Broadway, NY 112491 USA" }).status, "choose");
+});
+
+test("a pasted ZIP with a country suffix cannot reuse a conflicting cached or selected address", async () => {
+  const queries: (string | null)[] = [];
+  const resolver = createAddressResolver(async (request) => {
+    queries.push(new URL(String(request)).searchParams.get("text"));
+    return Response.json(collection(feature("100", "BROADWAY", "Manhattan", "10005", "1001024")));
+  });
+  const warm = await resolver({ street: "100 Broadway", area: "Manhattan" });
+  assert.equal(warm.status, "confirmed");
+  if (warm.status !== "confirmed") return;
+  const street = "100 Broadway, Apt 4B NY 11249 U.S.A.";
+  assert.equal((await resolver({ street, area: "Manhattan" })).status, "unmatched");
+  assert.equal((await resolver({ street, area: "Manhattan", selection: warm.address.key })).status, "unmatched");
+  assert.deepEqual(queries, ["100 BROADWAY, Manhattan", "100 BROADWAY, 11249", "100 BROADWAY, 11249"]);
+});
+
 test("malformed responses and placeholder IDs do not yield a fake building", async () => {
   const unresolved = feature("170", "ASHLAND PLACE", "Brooklyn", "11217", "3000000", "3020950026");
   const match = addressMatches(collection(unresolved, { properties: { layer: "street" } }), { street: "170 Ashland Pl", area: "11217" });

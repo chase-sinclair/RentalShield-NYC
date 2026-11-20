@@ -83,8 +83,11 @@ function parseArea(text: string): AreaHints | null {
 }
 
 function pastedArea(text: string): AreaHints {
-  const zip = zipAtEnd.exec(text);
-  const locality = (zip ? text.slice(0, zip.index) : text).replace(/\s+(?:N\.?Y\.?|New York)$/i, "");
+  const value = text
+    .replace(/(?:^|\s+)(?:U\.?S(?:\.?A)?|United\s+States(?:\s+of\s+America)?)(?=[\s.!?;:]*$)/i, "")
+    .replace(/[\s.!?;:]+$/, "");
+  const zip = zipAtEnd.exec(value);
+  const locality = (zip ? value.slice(0, zip.index) : value).replace(/\s+(?:N\.?Y\.?|New York)$/i, "");
   return { zip: zip?.[1], borough: boroughFrom(locality) };
 }
 
