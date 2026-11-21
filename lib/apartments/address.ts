@@ -61,6 +61,10 @@ export function normalizeStreet(street: string) {
   return parts.join(" ");
 }
 
+function numberedStreetKey(street: string) {
+  return street.replace(/^((?:(?:EAST|WEST|NORTH|SOUTH) )?\d+)(?:ST|ND|RD|TH)(?= (?:STREET|AVENUE)$)/, "$1");
+}
+
 function splitHouse(street: string) {
   const match = /^(\d+(?:-\d+)?[A-Z]?(?:\s+\d+\/\d+)?)\s+(.+)$/.exec(normalizedText(street));
   if (!match) return null;
@@ -138,6 +142,7 @@ export function addressMatches(payload: unknown, input: AddressInput): Resolutio
   const response = responseSchema.safeParse(payload);
   if (!response.success) return { status: "unavailable", message: availabilityMessage };
 
+  const streetKey = numberedStreetKey(parsed.houseStreet.street);
   const addresses: ApartmentAddress[] = [];
   let compatibleMalformed = false;
   for (const [index, feature] of response.data.features.entries()) {
@@ -147,7 +152,7 @@ export function addressMatches(payload: unknown, input: AddressInput): Resolutio
       const props = loose.success ? loose.data.properties : undefined;
       // Street and place features are expected, but a malformed matching address may compete.
       if (!props || (typeof props.housenumber === "string" && typeof props.street === "string" &&
-        normalizedText(props.housenumber) === parsed.houseStreet.house && normalizeStreet(props.street) === parsed.houseStreet.street)) {
+        normalizedText(props.housenumber) === parsed.houseStreet.house && numberedStreetKey(normalizeStreet(props.street)) === streetKey)) {
         compatibleMalformed = true;
       }
       continue;
@@ -156,7 +161,7 @@ export function addressMatches(payload: unknown, input: AddressInput): Resolutio
     const { properties, geometry } = candidate.data;
     const house = normalizedText(properties.housenumber);
     const street = normalizeStreet(properties.street);
-    if (house !== parsed.houseStreet.house || street !== parsed.houseStreet.street) continue;
+    if (house !== parsed.houseStreet.house || numberedStreetKey(street) !== streetKey) continue;
 
     const [longitude, latitude] = geometry.coordinates;
     if (!insideNYCPoint(latitude, longitude)) continue;
@@ -218,7 +223,7 @@ export function createAddressResolver(fetcher: typeof fetch = fetch) {
   return async function resolveAddress(input: AddressInput): Promise<Resolution> {
     const { houseStreet, area, error } = parseAddress(input);
     if (error || !houseStreet) return addressMatches({ type: "FeatureCollection", features: [] }, input);
-    const street = houseStreet.house + " " + houseStreet.street;
+    const street = houseStreet.house + " " + numberedStreetKey(houseStreet.street);
     const query = [street, area?.zip ?? area?.borough].filter(Boolean).join(", ");
     return cachedAddress(JSON.stringify(["geosearch-v2", street, area?.borough, area?.zip, input.selection]), async () => {
       const endpoint = new URL("https://geosearch.planninglabs.nyc/v2/search");
