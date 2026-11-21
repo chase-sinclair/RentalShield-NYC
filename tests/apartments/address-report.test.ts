@@ -37,6 +37,31 @@ test("GeoSearch preserves Queens hyphens and house suffixes and ignores equally 
   assert.equal(addressMatches(collection(wrong), { street: "45-45A Center Blvd", area: "Queens" }).status, "unmatched");
 });
 
+test("GeoSearch accepts ordinal numbered streets and avenues with exact building and area matches", async () => {
+  const avenue = feature("222", "1 AVENUE", "Manhattan", "10009", "1000101", "1004410001");
+  const street = feature("222", "EAST 12 STREET", "Manhattan", "10003", "1000102");
+  const candidates = collection(avenue, street);
+  const queries: (string | null)[] = [];
+  const resolve = createAddressResolver(async (request) => {
+    queries.push(new URL(String(request)).searchParams.get("text"));
+    return Response.json(candidates);
+  });
+
+  const first = await resolve({ street: "222 1st Ave, Apt QA-4", area: "10009" });
+  assert.equal(first.status === "confirmed" && first.address.key, "222|1 AVENUE|Manhattan|1000101");
+  assert.equal(first.status === "confirmed" && first.address.bbl, "1004410001");
+  const second = await resolve({ street: "222 E 12th St.", area: "10003" });
+  assert.equal(second.status === "confirmed" && second.address.key, "222|EAST 12 STREET|Manhattan|1000102");
+  assert.deepEqual(queries, ["222 1 AVENUE, 10009", "222 EAST 12 STREET, 10003"]);
+  assert.equal(addressMatches(candidates, { street: "222 1st Ave, QA-4 / 10009" }).status, "confirmed");
+  assert.equal(addressMatches(candidates, { street: "222 1st Ave", area: "10003" }).status, "unmatched");
+  assert.equal(addressMatches(candidates, { street: "222 1st Ave", area: "Brooklyn" }).status, "unmatched");
+  assert.equal(addressMatches(candidates, { street: "222 W 12th St", area: "Manhattan" }).status, "unmatched");
+  assert.equal(addressMatches(candidates, { street: "223 1st Ave", area: "10009" }).status, "unmatched");
+  const anotherBin = feature("222", "1ST AVE", "Manhattan", "10009", "1000103", "1004410001");
+  assert.equal(addressMatches(collection(avenue, anotherBin), { street: "222 1st Ave", area: "10009" }).status, "choose");
+});
+
 test("listing ambiguity is per verified BIN, including aliases, same-zip context, and a shared lot", () => {
   const aliases = [
     feature("100", "B'WAY", "Brooklyn", "11249", "3324734", "3021310001"),
